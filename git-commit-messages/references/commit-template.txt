@@ -1,0 +1,24 @@
+# <Type> <Sujet>
+
+# [Corps optionnel - précédé d'une ligne vide]
+#     Expliquer le POURQUOI, pas seulement le QUOI.
+#     Indenter chaque ligne avec 4 espaces.
+#     Limiter les lignes à 80 caractères.
+#     Utiliser des puces (-) pour les changements multiples.
+
+# Exemples de bons sujets :
+# - Implement user authentication with JWT tokens
+# - Refactor database connection pooling logic
+# - Optimize image loading performance on mobile
+# - Extract validation logic into reusable module
+# - Introduce caching layer for API responses
+
+# Exemple de bon corps :
+#     The previous implementation had performance issues under load.
+#
+#     Changes:
+#     - Implement connection pool with configurable size
+#     - Add timeout handling for stale connections
+#     - Reuse connections across requests
+#
+#     Refs: #123
