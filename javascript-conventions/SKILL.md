@@ -12,6 +12,7 @@ description: Standards de codage JavaScript/Node.js couvrant style fonctionnel, 
 ### 1. Langue
 
 **Anglais par défaut**
+
 - Tout le code (variables, fonctions, classes, constantes) doit être en anglais
 - Tous les commentaires de code et JSDoc doivent être en anglais
 - Les messages utilisateur peuvent être localisés selon le contexte
@@ -38,10 +39,12 @@ const calculerTotal = (prix, tauxTaxe) => prix * (1 + tauxTaxe);
 ### 2. Paradigme de Programmation
 
 **Programmation fonctionnelle > POO**
+
 - Privilégier les fonctions pures et la programmation fonctionnelle
 - N'utiliser la programmation objet que si elle apporte un avantage indéniable
 
 **Arrow functions par défaut**
+
 ```javascript
 // ✅ Correct
 const add = (a, b) => a + b;
@@ -62,6 +65,7 @@ function add(a, b) {
 ### 3. Formatage
 
 **Points-virgules obligatoires**
+
 ```javascript
 // ✅ Correct
 const x = 42;
@@ -69,6 +73,7 @@ console.log(x);
 ```
 
 **Dangling commas sur multilignes**
+
 ```javascript
 // ✅ Correct
 const config = {
@@ -85,12 +90,14 @@ const items = [
 ```
 
 **Pas d'espaces blancs en fin de ligne**
+
 - Exception : les chaînes de caractères peuvent intentionnellement en contenir
 - Configurer l'éditeur pour supprimer automatiquement les trailing whitespaces sur les lignes de code modifiées
 
 ### 4. Documentation
 
 **JSDoc systématique**
+
 ```javascript
 /**
  * Calculates the sum of two numbers
@@ -118,6 +125,7 @@ const fetchUser = async id => {
 ### 5. Modules et Imports
 
 **ESM (ECMAScript Modules) > CommonJS**
+
 ```javascript
 // ✅ Correct - ESM
 import fs from 'node:fs';
@@ -135,6 +143,7 @@ module.exports = myFunction;
 **Préfixe `node:` obligatoire pour modules natifs**
 
 Toujours préfixer les imports de modules Node.js natifs avec `node:` pour :
+
 - Différencier clairement les modules natifs des packages npm
 - Améliorer la performance (résolution directe, pas de recherche dans node_modules)
 - Éviter les conflits de nommage avec des packages tiers
@@ -153,6 +162,7 @@ import { readFile } from 'fs/promises';
 ```
 
 **Modules natifs courants :**
+
 - `node:fs`, `node:fs/promises`
 - `node:path`
 - `node:http`, `node:https`
@@ -166,6 +176,7 @@ import { readFile } from 'fs/promises';
 ### 6. Asynchronisme
 
 **async/await > Promises**
+
 ```javascript
 // ✅ Correct
 const processData = async () => {
@@ -229,6 +240,7 @@ const processAction = (action, data) => {
 ### 8. Signatures de Fonctions
 
 **Objets d'options pour 3+ paramètres**
+
 ```javascript
 // ❌ Éviter - Multiple positional arguments
 const createUser = (name, email, age, role, department) => {
@@ -263,6 +275,7 @@ createUser({
 ### 9. Gestion des Dépendances
 
 **Versions @latest par défaut**
+
 ```bash
 # ✅ Preferred - Install latest version
 npm install express@latest
@@ -274,6 +287,7 @@ npm install react@18
 ### 10. Environnement Node.js
 
 **Version LTS paire récente**
+
 - Privilégier les versions paires (LTS) : 20.x, 22.x, 24.x
 - Statuts acceptables : "Current", "Active LTS", "Maintenance LTS"
 - Spécifier dans `package.json` :
@@ -306,6 +320,39 @@ if (x == '42') { ... }       // true even if x is the number 42
 
 **Exception :** `== null` est acceptable uniquement quand on veut explicitement tester à la fois `null` et `undefined` — mais dans ce cas, préférer le chaînage optionnel (`?.`) ou la nullish coalescing (`??`).
 
+### 12. Tableaux — Immutabilité par défaut
+
+**Privilégier les méthodes non mutatives** introduites en ES2023. Elles retournent un nouveau tableau sans modifier l'original, ce qui s'inscrit dans le paradigme fonctionnel de ces conventions.
+
+| Mutatif            | Non mutatif (préféré) |
+|--------------------|-----------------------|
+| `sort()`           | `toSorted()`          |
+| `reverse()`        | `toReversed()`        |
+| `splice()`         | `toSpliced()`         |
+| `array[i] = value` | `with(index, value)`  |
+
+```javascript
+// ✅ Correct - Non-mutative methods
+const numbers = [3, 1, 4, 1, 5];
+
+const sorted = numbers.toSorted((a, b) => a - b);
+const reversed = numbers.toReversed();
+const withoutSecond = numbers.toSpliced(1, 1);
+const replaced = numbers.with(0, 99);
+
+// Original array is unchanged
+console.log(numbers); // [3, 1, 4, 1, 5]
+
+// ❌ Avoid - Mutative methods (modify the original array)
+const numbers2 = [3, 1, 4, 1, 5];
+
+numbers2.sort((a, b) => a - b);  // mutates in place
+numbers2.reverse();               // mutates in place
+numbers2.splice(1, 1);            // mutates in place
+```
+
+**Exception :** La mutation est acceptable quand elle est intentionnelle et justifiée — par exemple pour des raisons de performance mémoire sur de très grands tableaux, ou quand on construit un tableau local qui n'est pas partagé.
+
 ## Exemples Complets
 
 Voir [javascript-examples.md](./references/javascript-examples.md) pour des exemples complets (script Node.js, module ESM réutilisable).
@@ -326,4 +373,5 @@ Avant de finaliser un script JavaScript :
 - [ ] Fonctions 3+ params utilisent objets d'options
 - [ ] Version Node.js LTS paire spécifiée si applicable
 - [ ] Comparaisons strictes (`===`, `!==`) utilisées à la place de `==` et `!=`
+- [ ] Méthodes non mutatives de tableaux utilisées par défaut (`toSorted`, `toReversed`, `toSpliced`, `with`)
 - [ ] Linting projet respecté (si présent)
