@@ -22,7 +22,7 @@ GitLab supporte deux modes d'authentification :
 ### 1. Personal Access Token (Recommandé pour les mutations)
 
 ```bash
-curl -H 'PRIVATE-TOKEN: glpat-xxxxxxxxxxxx' \
+curl -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
   'https://gitlab.example.com/api/v4/projects/...'
 ```
 
@@ -36,7 +36,7 @@ curl -H 'PRIVATE-TOKEN: glpat-xxxxxxxxxxxx' \
 ### 2. Session Cookie (Lecture GraphQL uniquement)
 
 ```bash
-curl -H 'Cookie: _gitlab_session=xxxxx' \
+curl -H "Cookie: _gitlab_session=$GITLAB_SESSION" \
   'https://gitlab.example.com/api/graphql'
 ```
 
@@ -258,39 +258,75 @@ curl -s 'https://gitlab.example.com/api/v4/projects/<project>/issues' \
 - `?assignee_id=123` : assignées à un utilisateur
 - `?milestone=v1.0` : par milestone
 
+## Garde-fous de sécurité
+
+### Protection des tokens et sanitisation de la sortie
+
+- Ne JAMAIS afficher de valeur réelle de token (`glpat-*`, `glptt-*`, `glsoat-*`) dans la sortie, les confirmations, ou les commandes construites
+- Dans les commandes curl, utiliser `$GITLAB_TOKEN` ou `$GITLAB_SESSION` — jamais de valeur en dur
+- Ne JAMAIS afficher la valeur d'un cookie `_gitlab_session`
+- Si une réponse API contient un champ `token`, `private_token`, `runners_token`, `secret`, ou `variable.value` : masquer la valeur avec `*****` et avertir
+- Si la sortie contient un pattern `glpat-`, `glptt-`, `-----BEGIN`, ou `_gitlab_session=` : tronquer et avertir
+
+### Classification des opérations
+
+| Niveau           | Méthode HTTP / Type            | Confirmation requise                                               |
+|------------------|--------------------------------|--------------------------------------------------------------------|
+| **Lecture**      | `GET`, `HEAD`, GraphQL `query` | Aucune                                                             |
+| **Écriture**     | `POST`, GraphQL `mutation`     | Afficher le body complet, attendre confirmation                    |
+| **Modification** | `PUT`, `PATCH`                 | Afficher le contenu et l'impact, attendre confirmation avec rappel |
+| **Destructif**   | `DELETE`                       | **Interdit par défaut** (voir ci-dessous)                          |
+
+### Opérations interdites
+
+Ne JAMAIS exécuter, même sur demande explicite :
+
+- `DELETE /projects/:id` — suppression de projet
+- `DELETE /groups/:id` — suppression de groupe
+- `PUT /projects/:id` avec `visibility: "public"` — rendre un projet public
+- `DELETE` sur `/protected_branches`, `/deploy_keys`, `/hooks`, `/members`
+- Mutations GraphQL `projectDelete`, `groupDelete`
+- `POST` ou `PUT` sur `/variables` avec une valeur qui ressemble à un secret (`glpat-*`, `-----BEGIN`, mot de passe)
+
+Si l'utilisateur demande une opération interdite : refuser, expliquer le risque, et suggérer l'alternative via l'interface web.
+
+### Restrictions sur DELETE
+
+- **Interdit par défaut.** Refuser et orienter vers l'interface web.
+- **Exception** : uniquement si l'utilisateur fournit une justification explicite ET confirme deux fois.
+- Les opérations de la liste interdite restent bloquées sans exception.
+
+### Trace d'audit
+
+Pour chaque opération d'écriture, modification ou destructive exécutée, inclure dans la réponse :
+
+- Horodatage
+- Méthode HTTP + endpoint (avec tokens masqués)
+- Body envoyé (résumé si volumineux)
+- Résultat : code HTTP + identifiant de la ressource créée/modifiée
+
 ## Bonnes pratiques
 
 ### Confirmation avant publication
 
-**RÈGLE OBLIGATOIRE** : Avant toute opération d'écriture sur GitLab (création d'issue, commentaire, merge request, mise à jour, etc.), je dois :
-
-1. **Afficher le contenu complet** qui sera envoyé (titre, description, commentaire, etc.)
-2. **Demander confirmation explicite** à l'utilisateur
-3. **Attendre la validation** avant d'exécuter l'opération
-
-**Opérations concernées** :
-
-- ✍️ Création d'issues, merge requests
-- 💬 Ajout de commentaires ou notes
-- 📝 Mise à jour d'issues ou MR existantes
-- 🏷️ Modification de labels, assignations, milestones
-- ✅ Résolution de discussions
+**RÈGLE OBLIGATOIRE** : Le niveau de confirmation dépend de la classification de l'opération (voir « Garde-fous de sécurité » ci-dessus).
 
 **Format de confirmation** :
 
 ```
-📤 Contenu à publier sur GitLab :
+Opération GitLab [ÉCRITURE|MODIFICATION|DESTRUCTIF] :
 
-Titre : [titre]
-Description :
+Méthode : [POST|PUT|PATCH|DELETE]
+Endpoint : [URL avec tokens masqués]
+Contenu :
 ---
-[contenu complet]
+[body complet avec valeurs sensibles masquées]
 ---
 
-Souhaitez-vous publier ce contenu sur GitLab ? (oui/non)
+Souhaitez-vous exécuter cette opération ? (oui/non)
 ```
 
-**Exception** : Les opérations de lecture (GET, queries GraphQL) ne nécessitent pas de confirmation.
+**Exception** : Les opérations de lecture (GET, HEAD, queries GraphQL) ne nécessitent pas de confirmation.
 
 ### Gestion des erreurs
 
@@ -357,7 +393,7 @@ Headers de pagination :
 
 ```bash
 curl -X POST 'https://gitlab.example.com/api/v4/projects/my-org%2Fmy-project/issues' \
-  -H 'PRIVATE-TOKEN: glpat-xxxxx' \
+  -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
   --data @- << 'EOF'
 {
   "title": "Normaliser la nomenclature des propriétés Contact en camelCase",

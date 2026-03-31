@@ -31,13 +31,55 @@ Informer l'utilisateur, lui demander de s'identifier (`glab auth login`), ou bas
 2. **Toujours utiliser `--fill --yes`** pour `glab mr create` afin d'éviter les prompts interactifs.
 3. **Préfixer `NO_PROMPT=1`** pour désactiver tout prompt restant : `NO_PROMPT=1 glab mr create --fill --yes`.
 4. **Utiliser `--output json`** quand le résultat doit être parsé ou traité.
-5. **Confirmation obligatoire** avant toute opération d'écriture
-   - Afficher le contenu/la commande complète à l'utilisateur
-   - Attendre l'approbation explicite avant d'exécuter
+5. **Confirmation obligatoire** selon la classification des opérations (voir « Garde-fous de sécurité » ci-dessous)
 6. **Ne jamais utiliser `-F` (follow)** ni les flags de streaming qui bloquent indéfiniment.
 7. **Détection automatique du contexte** : glab détecte le host et le projet via le remote git.  
    Toujours essayer la commande sans `-R` ni `GITLAB_HOST` d'abord.  
    Ne les spécifier qu'en seconde intention si la détection échoue.
+
+## Garde-fous de sécurité
+
+### Classification des opérations
+
+| Niveau         | Opérations                                                                                                                                                            | Confirmation requise                                                                          |
+|----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| **Lecture**    | `mr list`, `mr view`, `mr diff`, `issue list`, `issue view`, `ci status`, `ci list`, `ci trace`, `ci lint`, `repo view`, `variable list`, `release list`, `api` (GET) | Aucune                                                                                        |
+| **Écriture**   | `mr create`, `mr update`, `mr note`, `mr approve`, `issue create`, `issue note`, `ci run`, `ci retry`, `variable set`, `release create`                               | Afficher le contenu complet, attendre confirmation explicite                                  |
+| **Destructif** | `mr merge`, `mr close`, `issue close`, `api -X DELETE`, `api -X PUT`                                                                                                  | Afficher la commande, expliquer l'impact, attendre confirmation avec rappel d'irréversibilité |
+
+### Opérations interdites
+
+Ne JAMAIS exécuter, même sur demande explicite :
+
+- `glab api -X DELETE /projects/:id` — suppression de projet
+- `glab api -X DELETE /groups/:id` — suppression de groupe
+- `glab api -X PUT /projects/:id` avec `visibility: "public"` — rendre un projet public
+- `glab api -X DELETE` sur `/protected_branches`, `/deploy_keys`, `/hooks`, `/members`
+- `glab variable set` avec une valeur qui ressemble à un token, clé privée ou mot de passe
+
+Si l'utilisateur demande une opération interdite : refuser, expliquer le risque, et suggérer l'alternative via l'interface web GitLab.
+
+### Garde-fous pour `glab api` (API brute)
+
+- **GET** : autorisé sans confirmation
+- **POST** : confirmation standard (niveau Écriture)
+- **PUT/PATCH** : confirmation renforcée (niveau Destructif)
+- **DELETE** : **interdit par défaut**. Refuser et orienter vers l'interface web. Exception uniquement si l'utilisateur fournit une justification explicite ET confirme deux fois
+
+### Protection des tokens et sanitisation de la sortie
+
+- Ne JAMAIS afficher de token réel (`glpat-*`, `glptt-*`, `glsoat-*`) dans la sortie ou les confirmations
+- Ne jamais afficher les valeurs des variables CI/CD — uniquement les métadonnées (clé, environnement, type protégé/masqué)
+- Si la sortie d'une commande contient un pattern `glpat-`, `glptt-`, ou `-----BEGIN` : tronquer et avertir l'utilisateur
+- Si une réponse `glab api` contient un champ `token`, `private_token`, `runners_token`, ou `secret` : masquer la valeur
+
+### Trace d'audit
+
+Pour chaque opération d'écriture ou destructive exécutée, inclure dans la réponse :
+
+- Horodatage
+- Commande exacte exécutée (avec tokens masqués)
+- Résultat (succès/échec + identifiant de la ressource créée/modifiée)
 
 ## Référence rapide
 
@@ -141,16 +183,18 @@ glab api /projects/:id/issues --paginate
 
 **Note** : les paramètres de pagination se placent dans l'URL : `/projects/:id/jobs?per_page=100`, pas en flag séparé.
 
+**Sécurité** : les appels `glab api` sont soumis aux garde-fous de sécurité. Voir la section dédiée pour les restrictions par méthode HTTP.
+
 ## Pièges courants
 
-| Piège                          | Problème                       | Solution                                                     |
-|--------------------------------|--------------------------------|--------------------------------------------------------------|
-| `glab ci view`                 | Ouvre un TUI interactif        | Utiliser `glab ci status`                                    |
-| `glab mr create` sans `--fill` | Ouvre un éditeur interactif    | Toujours ajouter `--fill --yes`                              |
-| Sortie brute de `glab mr view` | Rend le Markdown avec glamour  | Ajouter `--output json` pour du parseable                    |
-| `glab ci trace`                | Streame en temps réel          | Définir un timeout ou utiliser `--output json` si disponible |
-| `glab mr merge` sans `--yes`   | Demande confirmation           | Toujours ajouter `--yes`                                     |
-| Pagination dans `glab api`     | `--per-page` n'est pas un flag | Utiliser les params dans l'URL : `?per_page=100`             |
+| Piège                           | Problème                                | Solution                                                       |
+|---------------------------------|-----------------------------------------|----------------------------------------------------------------|
+| `glab ci view`                  | Ouvre un TUI interactif                 | Utiliser `glab ci status`                                      |
+| `glab mr create` sans `--fill`  | Ouvre un éditeur interactif             | Toujours ajouter `--fill --yes`                                |
+| Sortie brute de `glab mr view`  | Rend le Markdown avec glamour           | Ajouter `--output json` pour du parseable                      |
+| `glab ci trace`                 | Streame en temps réel                   | Définir un timeout ou utiliser `--output json` si disponible   |
+| `glab mr merge` sans `--yes`    | Demande confirmation                    | Toujours ajouter `--yes`                                       |
+| Pagination dans `glab api`      | `--per-page` n'est pas un flag          | Utiliser les params dans l'URL : `?per_page=100`               |
 | `-R`/`GITLAB_HOST` systématique | glab détecte le contexte via git remote | Essayer la commande simple d'abord, `-R` seulement en fallback |
 
 ## Exemples de workflows
