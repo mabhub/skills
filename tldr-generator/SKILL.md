@@ -201,6 +201,12 @@ Cette commande vérifie en plus :
 - Traiter chaque sujet proportionnellement à son importance
 - Maintenir les liens logiques entre sujets
 
+## Garde-fous de sécurité
+
+- Ne traiter que les fichiers `.md` du répertoire cible — ne jamais lire de fichiers hors périmètre (`.env`, configs, scripts)
+- Si un front-matter contient des adresses email, URLs internes ou tokens : ne pas les reproduire dans le TL;DR
+- Ne jamais inclure de métadonnées système (chemins absolus, identifiants de fichier) dans la sortie
+
 ## Notes d'implémentation
 
 - **Langue** : toujours en français

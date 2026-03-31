@@ -68,6 +68,7 @@ git log --oneline <base>..HEAD
 Deux formats acceptés par `git-rebase-auto.mjs` :
 
 **Format texte** (`/tmp/rebase-plan.txt`) :
+
 ```
 # une action par ligne : <action> <hash> [message]
 pick   a1b2c3d feat: add OAuth
@@ -77,6 +78,7 @@ drop   1l2m3n4 chore: bump deps
 ```
 
 **Format JSON** (`/tmp/rebase-plan.json`) :
+
 ```json
 [
   { "action": "pick",  "hash": "a1b2c3d", "label": "feat: add OAuth" },
@@ -112,6 +114,7 @@ git log --oneline <base>..HEAD
 ```
 
 Si le rebase a échoué, la branche de sauvegarde est disponible :
+
 ```bash
 git rebase --abort
 # ou restaurer depuis la sauvegarde :
@@ -119,25 +122,26 @@ git reset --hard backup-before-rebase
 ```
 
 Nettoyer la branche de backup une fois satisfait :
+
 ```bash
 git branch -d backup-before-rebase
 ```
 
 ## Actions disponibles
 
-| Action    | Alias | Effet                                              |
-|-----------|-------|----------------------------------------------------|
-| `pick`    | `p`   | Conserver le commit tel quel                       |
-| `reword`  | `r`   | Conserver, modifier le message de commit           |
-| `edit`    | `e`   | Conserver, s'arrêter pour amender                  |
-| `squash`  | `s`   | Fusionner avec le précédent, éditer le message     |
-| `fixup`   | `f`   | Fusionner avec le précédent, garder son message    |
-| `drop`    | `d`   | Supprimer le commit                                |
-| `exec`    | —     | Exécuter une commande shell                        |
-| `label`   | —     | Étiqueter le HEAD courant                          |
-| `reset`   | —     | Remettre HEAD sur un label                         |
-| `merge`   | —     | Créer un commit de merge                           |
-| `break`   | —     | Pause le rebase à ce point                         |
+| Action   | Alias | Effet                                           |
+|----------|-------|-------------------------------------------------|
+| `pick`   | `p`   | Conserver le commit tel quel                    |
+| `reword` | `r`   | Conserver, modifier le message de commit        |
+| `edit`   | `e`   | Conserver, s'arrêter pour amender               |
+| `squash` | `s`   | Fusionner avec le précédent, éditer le message  |
+| `fixup`  | `f`   | Fusionner avec le précédent, garder son message |
+| `drop`   | `d`   | Supprimer le commit                             |
+| `exec`   | —     | Exécuter une commande shell                     |
+| `label`  | —     | Étiqueter le HEAD courant                       |
+| `reset`  | —     | Remettre HEAD sur un label                      |
+| `merge`  | —     | Créer un commit de merge                        |
+| `break`  | —     | Pause le rebase à ce point                      |
 
 ## Options CLI complètes
 
@@ -167,6 +171,7 @@ git log --oneline main..HEAD
 ```
 
 Plan :
+
 ```
 pick   a1b2c3d feat: add search
 fixup  e4f5g6h wip: search debug
@@ -252,6 +257,58 @@ git rebase --abort
 # Ou sauter le commit problématique :
 git rebase --skip
 ```
+
+## Garde-fous de sécurité
+
+### Branches protégées
+
+Ne JAMAIS rebaser directement sur les branches suivantes sans confirmation explicite de l'utilisateur :
+
+- `main`, `master`, `develop`, `release/*`, `production`
+
+Avant tout rebase, vérifier la branche courante :
+
+```bash
+git branch --show-current
+```
+
+### Restrictions sur `exec`
+
+L'action `exec` exécute des commandes shell arbitraires pendant le rebase. Seules les commandes suivantes sont autorisées :
+
+- Commandes de test : `npm test`, `npm run test`, `yarn test`, `cargo test`, `pytest`, `make test`
+- Commandes de build : `npm run build`, `cargo build`, `make`
+- Commandes de lint : `npm run lint`, `eslint`, `cargo clippy`
+
+Ne JAMAIS accepter dans `exec` :
+
+- Commandes réseau (`curl`, `wget`, `ssh`, `git push`)
+- Commandes destructives (`rm`, `rmdir`, `git reset`, `git clean`)
+- Commandes d'installation (`npm install`, `pip install`, `apt`)
+- Commandes arbitraires fournies par l'utilisateur sans vérification
+
+Si l'utilisateur demande un `exec` hors liste : afficher la commande, expliquer le risque, et demander une confirmation explicite.
+
+### Restrictions sur `drop`
+
+Avant tout `drop` dans un plan :
+
+- Afficher le hash complet, le message du commit et les fichiers modifiés (`git show --stat <hash>`)
+- Demander une confirmation explicite
+- Ne JAMAIS inclure plus de 3 `drop` dans un même plan sans revalidation
+
+### Vérifications obligatoires avant exécution
+
+1. **Working tree propre** : vérifier `git status --porcelain` — refuser si non vide
+2. **Branche de sauvegarde** : créer `backup-before-rebase` automatiquement si elle n'existe pas
+3. **Dry-run systématique** : toujours exécuter `--dry-run` avant le rebase réel et afficher le plan à l'utilisateur
+4. **Branche non protégée** : vérifier que la branche courante n'est pas dans la liste protégée
+5. **Pas de remote tracking** : avertir si la branche suit un remote (`git rev-parse --abbrev-ref @{upstream}`) — le rebase va réécrire l'historique poussé
+
+### Après le rebase
+
+- Ne JAMAIS exécuter `git push --force` automatiquement — toujours proposer à l'utilisateur de le faire lui-même.
+- Afficher le résultat (`git log --oneline <base>..HEAD`) pour validation
 
 ## Précautions
 
