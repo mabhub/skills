@@ -82,7 +82,8 @@ function parseArgs() {
     perFile: false,
     maxFiles: Infinity,
     verbose: false,
-    excludeDirs: new Set(['node_modules', 'dist', 'build', '.git', 'coverage', '.next', 'out']),
+    excludeDirs: new Set(['node_modules', 'dist', 'build', '.git', 'coverage', '.next', 'out', 'vendor', '__pycache__']),
+    excludeFilePatterns: [/\.env/, /credential/i, /secret/i, /token/i, /\.pem$/, /\.key$/, /\.p12$/, /\.pfx$/],
     extensions: new Set(['.js', '.jsx', '.ts', '.tsx', '.mjs']),
   };
 
@@ -122,6 +123,8 @@ function discoverFiles(dir, opts) {
     const parts = entry.split('/');
     if (parts.some(p => opts.excludeDirs.has(p))) continue;
     if (!opts.extensions.has(extname(entry))) continue;
+    const basename = parts[parts.length - 1];
+    if (opts.excludeFilePatterns.some(re => re.test(basename))) continue;
     files.push(join(absDir, entry));
   }
 

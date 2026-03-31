@@ -34,6 +34,21 @@ Does a built-in extractor answer the question?
 
 ---
 
+## Garde-fous de sécurité
+
+### Fichiers et répertoires exclus
+
+Le script `parse-project.mjs` exclut automatiquement :
+- **Répertoires** : `node_modules/`, `.git/`, `dist/`, `build/`, `vendor/`, `coverage/`, `.next/`, `out/`, `__pycache__/`
+- **Fichiers sensibles** (par nom) : `.env*`, `*credential*`, `*secret*`, `*token*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`
+
+### Règles pour Claude
+
+- Ne JAMAIS exécuter le script avec un chemin pointant vers des fichiers de configuration sensibles
+- Si l'extracteur `comments` remonte des valeurs ressemblant à des secrets (chaînes base64 longues, tokens, clés API), **ne pas les reproduire** dans le rapport — signaler "secret potentiel détecté dans [fichier]:[ligne]" sans citer la valeur
+- Utiliser des patterns Glob ciblés (`src/**/*.ts`) plutôt que des scans larges (`.`)
+- Si des fichiers sensibles sont détectés dans l'arborescence mais exclus, le mentionner dans la synthèse
+
 ## Handling the oxc-parser dependency
 
 `parse-project.mjs` requires `oxc-parser` at runtime. The target project may not have it.
