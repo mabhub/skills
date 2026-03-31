@@ -43,6 +43,24 @@ Si scope ambigu sur un grand projet (> 50 fichiers source), poser **une seule qu
 > Quel est le périmètre de la revue ? (projet entier / répertoire spécifique / branche Git)
 > Et l'objectif : nettoyage (smells, simplification) ou revue complète avec architecture ?
 
+## Garde-fous de sécurité
+
+### Fichiers et répertoires exclus de l'exploration
+
+Ne JAMAIS lire ni lister le contenu de :
+- Fichiers de secrets : `.env*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*credentials*`, `*secret*`, `*token*`
+- Répertoires : `node_modules/`, `.git/`, `vendor/`, `dist/`, `build/`, `__pycache__/`
+- Fichiers de lock : `*.lock`, `package-lock.json` (pas pertinents pour une revue)
+- Fixtures/seeds contenant des données factices sensibles
+
+Si un fichier exclu est détecté par Glob, le mentionner dans la synthèse comme "exclu par politique de sécurité" sans révéler son contenu.
+
+### Règle Glob
+
+Toujours exclure les patterns ci-dessus. Utiliser des patterns ciblés :
+- ✅ `Glob("src/**/*.ts")` — ciblé
+- ❌ `Glob("**/*")` — trop large, risque d'inclure des fichiers sensibles
+
 ## Étape 2 : Explorer le codebase
 
 ### Scope `projet`
@@ -104,6 +122,11 @@ Limiter à ~15 findings au total — grouper les mineurs si nombreux.
 
 ### Recommandations générales
 [Patterns récurrents, refactorings structurels à envisager]
+
+### Périmètre couvert
+- Fichiers analysés : [nombre]
+- Fichiers exclus (politique sécurité) : [nombre et raison]
+- Zones non couvertes : [liste]
 ```
 
 ### Règles de rédaction
@@ -112,3 +135,6 @@ Limiter à ~15 findings au total — grouper les mineurs si nombreux.
 - Suggestions **spécifiques** (nom proposé, pattern à appliquer), jamais génériques
 - Pas de score de confiance
 - Si zone non couverte par l'exploration, le mentionner explicitement dans la synthèse
+- Ne JAMAIS citer de valeurs qui ressemblent à des secrets (chaînes base64 longues, tokens, clés API) même si trouvées en dur dans le code — signaler leur présence sans les reproduire
+- Ne pas inclure de chemins complets vers des fichiers de configuration sensibles dans le rapport
+- Si un finding concerne un secret en dur : dire "secret en dur détecté dans [fichier]:[ligne]" sans citer la valeur
