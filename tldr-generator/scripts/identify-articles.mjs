@@ -19,12 +19,22 @@ async function identifyArticles(directory = '.') {
   try {
     const files = await readdir(directory);
 
-    // Filter markdown files (exclude README.md, INDEX.md, and .tldr.md files)
+    // Filter markdown files (exclude .tldr.md files and agent/repo meta files)
+    const META_FILES = new Set([
+      'README.md',
+      'INDEX.md',
+      'CLAUDE.md',
+      'AGENTS.md',
+      'GEMINI.md',
+      'COPILOT.md',
+      'CONTRIBUTING.md',
+      'CHANGELOG.md',
+      'LICENSE.md',
+    ]);
     const mdFiles = files.filter(f =>
       f.endsWith('.md') &&
       !isTldrFile(f) &&
-      f !== 'README.md' &&
-      f !== 'INDEX.md'
+      !META_FILES.has(f)
     );
 
     const results = [];
@@ -67,8 +77,9 @@ async function identifyArticles(directory = '.') {
  */
 async function main() {
   const args = process.argv.slice(2);
-  const directory = args[0] || process.cwd();
   const jsonOutput = args.includes('--json') || args.includes('-j');
+  const positional = args.filter((a) => !a.startsWith('-'));
+  const directory = positional[0] || process.cwd();
 
   const articles = await identifyArticles(directory);
 

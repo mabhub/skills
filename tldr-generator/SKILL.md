@@ -10,6 +10,20 @@ description: >
 
 # Générateur de résumés TL;DR
 
+## Chemins des scripts
+
+Les scripts sont livrés avec le skill dans son sous-dossier `scripts/`. Résoudre leur chemin dynamiquement à partir de l'emplacement réel de ce `SKILL.md` — ne pas supposer un chemin fixe. Le skill peut être installé à divers endroits (`~/.agents/skills/`, `~/.claude/skills/`, chemin projet-local, etc.) et doit rester portable entre machines et utilisateurs.
+
+Dans les blocs ci-dessous, `$SKILL_DIR` désigne le dossier contenant ce `SKILL.md`. L'agent connaît ce chemin au moment où il charge le skill (c'est le fichier qu'il vient de lire) — le définir une fois en début de session à partir de ce chemin :
+
+```bash
+SKILL_DIR="/chemin/absolu/vers/le/dossier/tldr-generator"   # dirname du SKILL.md chargé
+```
+
+**Ne pas utiliser le chemin relatif `tldr-generator/scripts/…`** : il ne fonctionne que si le cwd est le parent du dossier du skill, ce qui n'est presque jamais le cas.
+
+Les scripts scannent par défaut `process.cwd()` — exécuter les commandes **depuis le répertoire contenant les articles** (la bibliothèque cible), pas depuis le dossier du skill. Sinon, passer le répertoire cible en argument explicite.
+
 ## Processus de génération
 
 ### 1. Identification des articles
@@ -17,13 +31,13 @@ description: >
 Utiliser le script JavaScript pour lister tous les articles nécessitant un TL;DR, triés par priorité (articles les plus longs en premier) :
 
 ```bash
-node tldr-generator/scripts/identify-articles.mjs
+node "$SKILL_DIR/scripts/identify-articles.mjs"
 ```
 
 **Sortie JSON pour traitement automatisé :**
 
 ```bash
-node tldr-generator/scripts/identify-articles.mjs --json
+node "$SKILL_DIR/scripts/identify-articles.mjs" --json
 ```
 
 ### 2. Analyse préliminaire (optionnel)
@@ -31,7 +45,7 @@ node tldr-generator/scripts/identify-articles.mjs --json
 Avant de générer le TL;DR, analyser l'article pour déterminer son type et obtenir des recommandations :
 
 ```bash
-node tldr-generator/scripts/analyze-article.mjs "nom-article.md"
+node "$SKILL_DIR/scripts/analyze-article.mjs" "nom-article.md"
 ```
 
 Cette commande fournit :
@@ -44,7 +58,7 @@ Cette commande fournit :
 **Sortie JSON :**
 
 ```bash
-node tldr-generator/scripts/analyze-article.mjs "nom-article.md" --json
+node "$SKILL_DIR/scripts/analyze-article.mjs" "nom-article.md" --json
 ```
 
 ### 3. Critères de génération
@@ -150,7 +164,7 @@ Consulter `VALIDATION.md` pour les critères détaillés. Points clés :
 **Validation automatique des métriques :**
 
 ```bash
-node tldr-generator/scripts/validate-metrics.mjs "article.tldr.md"
+node "$SKILL_DIR/scripts/validate-metrics.mjs" "article.tldr.md"
 ```
 
 Cette commande vérifie :
@@ -163,7 +177,7 @@ Cette commande vérifie :
 **Validation approfondie (Python) :**
 
 ```bash
-python tldr-generator/scripts/validate_tldr.py "article.tldr.md"
+python "$SKILL_DIR/scripts/validate_tldr.py" "article.tldr.md"
 ```
 
 Cette commande vérifie en plus :
