@@ -353,6 +353,39 @@ numbers2.splice(1, 1);            // mutates in place
 
 **Exception :** La mutation est acceptable quand elle est intentionnelle et justifiée — par exemple pour des raisons de performance mémoire sur de très grands tableaux, ou quand on construit un tableau local qui n'est pas partagé.
 
+### 13. Emplacement des Fichiers de Tests
+
+**Colocation par défaut**
+
+À défaut d'une convention déjà en place dans le projet, placer les fichiers de tests **à côté** du fichier testé plutôt que dans un répertoire `__tests__/`, `test/` ou `tests/` séparé.
+
+```
+src/
+├── utils/
+│   ├── format-date.js
+│   ├── format-date.test.js       ✅ colocated
+│   ├── parse-url.js
+│   └── parse-url.test.js         ✅ colocated
+```
+
+**Avantages :**
+
+- Visibilité immédiate : on voit qu'un module a (ou n'a pas) de tests en consultant son dossier
+- Déplacer/renommer/supprimer un module entraîne naturellement son test
+- Imports relatifs courts (`./parse-url.js` au lieu de `../../src/utils/parse-url.js`)
+
+**Détection d'une convention existante — ne pas l'écraser :**
+
+Avant de créer un nouveau fichier de test, vérifier si le projet impose déjà un emplacement :
+
+1. Présence d'un répertoire `__tests__/`, `test/`, `tests/`, `spec/` utilisé de manière consistante
+2. Configuration explicite du runner (`jest.config.js`, `vitest.config.js`, `package.json`) : champs `testMatch`, `testPathIgnorePatterns`, `roots`, `testRegex`
+3. Documentation du projet (`CONTRIBUTING.md`, `README.md`, `AGENTS.md`)
+
+Si une convention existe, la suivre même si elle diffère de la colocation.
+
+**Nommage :** `<module>.test.js` (ou `.spec.js` si le projet utilise cette forme). Cohérence avec l'existant avant tout.
+
 ## Exemples Complets
 
 Voir [javascript-examples.md](./references/javascript-examples.md) pour des exemples complets (script Node.js, module ESM réutilisable).
@@ -374,4 +407,5 @@ Avant de finaliser un script JavaScript :
 - [ ] Version Node.js LTS paire spécifiée si applicable
 - [ ] Comparaisons strictes (`===`, `!==`) utilisées à la place de `==` et `!=`
 - [ ] Méthodes non mutatives de tableaux utilisées par défaut (`toSorted`, `toReversed`, `toSpliced`, `with`)
+- [ ] Fichiers de tests colocalisés avec le code testé (sauf convention projet différente)
 - [ ] Linting projet respecté (si présent)
