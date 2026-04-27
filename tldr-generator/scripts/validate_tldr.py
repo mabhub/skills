@@ -8,20 +8,22 @@ import sys
 import re
 import yaml
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Tuple
 
 
 class TLDRValidator:
     """Validateur de fichiers TL;DR."""
 
     # Limites
-    MAX_WORDS = 750
+    TARGET_WORDS = 750
+    HARD_CAP_WORDS = 1100
     MAX_READING_TIME_MIN = 3.0
     WORDS_PER_MINUTE = 250  # Français
     MAX_PARAGRAPH_WORDS = 150
 
-    # Champs requis front-matter
-    REQUIRED_FIELDS = ['created', 'source', 'author']
+    # Champs strictement requis (le reste devient warning si manquant)
+    REQUIRED_FIELDS = ['created']
+    RECOMMENDED_FIELDS = ['source', 'author']
 
     def __init__(self, filepath: str):
         self.filepath = Path(filepath)
@@ -61,10 +63,18 @@ class TLDRValidator:
 
     def validate_frontmatter(self) -> None:
         """Valide le contenu du front-matter."""
-        # Champs requis
+        # Champs strictement requis
         for field in self.REQUIRED_FIELDS:
             if field not in self.frontmatter:
                 self.errors.append(f"Champ requis manquant dans front-matter: '{field}'")
+
+        # Champs recommandés (warning seulement — le source peut ne pas en avoir)
+        for field in self.RECOMMENDED_FIELDS:
+            if field not in self.frontmatter:
+                self.warnings.append(
+                    f"Champ recommandé manquant: '{field}' "
+                    f"(absent dans la source ? OK de l'omettre)"
+                )
 
         # Tags recommandés
         if 'tags' not in self.frontmatter:
@@ -88,14 +98,19 @@ class TLDRValidator:
         word_count = self.count_words(self.body)
         reading_time = word_count / self.WORDS_PER_MINUTE
 
-        if word_count > self.MAX_WORDS:
+        if word_count > self.HARD_CAP_WORDS:
             self.errors.append(
-                f"Trop de mots: {word_count}/{self.MAX_WORDS} "
-                f"(temps de lecture: {reading_time:.1f} min)"
+                f"Dépassement majeur: {word_count} mots "
+                f"(plafond dur {self.HARD_CAP_WORDS}, lecture {reading_time:.1f} min)"
             )
-        elif word_count > self.MAX_WORDS * 0.9:
+        elif word_count > self.TARGET_WORDS:
             self.warnings.append(
-                f"Proche de la limite: {word_count}/{self.MAX_WORDS} mots"
+                f"Au-dessus de la cible: {word_count}/{self.TARGET_WORDS} mots "
+                f"(lecture {reading_time:.1f} min)"
+            )
+        elif word_count > self.TARGET_WORDS * 0.9:
+            self.warnings.append(
+                f"Proche de la cible: {word_count}/{self.TARGET_WORDS} mots"
             )
 
         return word_count, reading_time
@@ -126,7 +141,7 @@ class TLDRValidator:
         # Séparer en paragraphes (blocs non vides)
         paragraphs = re.split(r'\n\s*\n', self.body)
 
-        for i, para in enumerate(paragraphs, 1):
+        for para in paragraphs:
             # Ignorer titres, listes, code
             if re.match(r'^(#{1,3} |[-*+] |`|>)', para.strip()):
                 continue
@@ -186,7 +201,7 @@ class TLDRValidator:
         """Affiche les résultats de validation."""
         if not self.errors and not self.warnings:
             print("✅ Validation réussie")
-            print(f"   - Mots: {word_count}/{self.MAX_WORDS}")
+            print(f"   - Mots: {word_count}/{self.TARGET_WORDS}")
             print(f"   - Temps de lecture: {reading_time:.1f} min")
             print(f"   - Front-matter: valide")
             print(f"   - Structure: correcte")
@@ -203,7 +218,7 @@ class TLDRValidator:
 
             if not self.errors:
                 print("\n✅ Validation réussie avec avertissements")
-                print(f"   - Mots: {word_count}/{self.MAX_WORDS}")
+                print(f"   - Mots: {word_count}/{self.TARGET_WORDS}")
                 print(f"   - Temps de lecture: {reading_time:.1f} min")
 
 

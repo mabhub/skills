@@ -215,6 +215,21 @@ Cette commande vérifie en plus :
 - Traiter chaque sujet proportionnellement à son importance
 - Maintenir les liens logiques entre sujets
 
+## Garde-fous d'exécution (anti-boucle)
+
+Pour éviter les cycles de regénération coûteux en tokens :
+
+- **Max 2 tentatives par article** : si la validation échoue deux fois pour la même cause, **arrêter** et signaler le blocage à l'utilisateur (ne pas regénérer une troisième fois).
+- **Validation = warning ≠ blocage** : ne regénérer que sur `errors`. Les `warnings` (mots > 750, réduction faible, champ recommandé manquant) sont informatifs — ne pas relancer le LLM pour les faire disparaître.
+- **Champs absents de la source** : si l'article original n'a pas de `author` ou `source` dans son front-matter, ne pas inventer ces valeurs, ne pas regénérer pour les "corriger". Le validateur les traite comme warnings.
+- **Lots limités** : ne pas traiter plus de **5 articles par session** sans confirmation utilisateur. Pour des bibliothèques larges, présenter la liste prioritaire et demander la taille du batch.
+- **Un seul validateur suffit** : `validate-metrics.mjs` est canonique. `validate_tldr.py` est complémentaire (structure, encodage) — l'exécuter au plus une fois, en lecture seule. Ne pas alterner entre les deux pour pinailler.
+
+## Dépendances
+
+- **Node.js** ≥ 18 pour les scripts `.mjs` (ESM natif).
+- **Python** ≥ 3.8 + `PyYAML` pour `validate_tldr.py`. Si `pip install pyyaml` n'est pas possible, se contenter de `validate-metrics.mjs` — ne pas tenter d'installer en boucle.
+
 ## Garde-fous de sécurité
 
 - Ne traiter que les fichiers `.md` du répertoire cible — ne jamais lire de fichiers hors périmètre (`.env`, configs, scripts)

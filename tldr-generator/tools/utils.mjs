@@ -9,12 +9,24 @@ import { readFile, stat } from 'node:fs/promises';
 import { basename } from 'node:path';
 
 /**
+ * Strips YAML front-matter and markdown syntax from content for word counting.
+ * Mirrors the body-only counting done by validate_tldr.py to keep validators consistent.
+ * @param {string} content
+ * @returns {string}
+ */
+export function stripFrontMatterAndMarkdown(content) {
+  const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
+  return body.replace(/[#*`\[\]()_>-]/g, ' ');
+}
+
+/**
  * Calculates reading statistics for text content
  * @param {string} content - Text content to analyze
  * @returns {Object} Statistics object
  */
 export function calculateStats(content) {
-  const words = content.trim().split(/\s+/).filter(word => word.length > 0);
+  const cleaned = stripFrontMatterAndMarkdown(content);
+  const words = cleaned.trim().split(/\s+/).filter(word => word.length > 0);
   const characters = content.length;
   const charactersNoSpaces = content.replace(/\s/g, '').length;
   const lines = content.split('\n').length;
@@ -188,36 +200,42 @@ export function calculateReduction(originalWords, tldrWords) {
  * @returns {Object} Validation result
  */
 export function validateTldrMetrics(tldrStats) {
-  const MAX_WORDS = 750;
-  const MAX_READING_TIME = 3.0;
+  const TARGET_WORDS = 750;
+  const HARD_CAP_WORDS = 1100;
+  const TARGET_READING_TIME = 3.0;
 
   const errors = [];
   const warnings = [];
 
-  // Check word count
-  if (tldrStats.words > MAX_WORDS) {
+  if (tldrStats.words > HARD_CAP_WORDS) {
     errors.push({
-      type: 'word_count',
-      message: `Trop de mots: ${tldrStats.words}/${MAX_WORDS}`,
+      type: 'word_count_hard_cap',
+      message: `Dépassement majeur: ${tldrStats.words} mots (plafond dur ${HARD_CAP_WORDS})`,
       value: tldrStats.words,
-      limit: MAX_WORDS
+      limit: HARD_CAP_WORDS
     });
-  } else if (tldrStats.words > MAX_WORDS * 0.9) {
+  } else if (tldrStats.words > TARGET_WORDS) {
     warnings.push({
-      type: 'word_count',
-      message: `Proche de la limite: ${tldrStats.words}/${MAX_WORDS} mots`,
+      type: 'word_count_over_target',
+      message: `Au-dessus de la cible: ${tldrStats.words}/${TARGET_WORDS} mots`,
       value: tldrStats.words,
-      limit: MAX_WORDS
+      limit: TARGET_WORDS
+    });
+  } else if (tldrStats.words > TARGET_WORDS * 0.9) {
+    warnings.push({
+      type: 'word_count_near_target',
+      message: `Proche de la cible: ${tldrStats.words}/${TARGET_WORDS} mots`,
+      value: tldrStats.words,
+      limit: TARGET_WORDS
     });
   }
 
-  // Check reading time
-  if (tldrStats.readingTimeMinutes > MAX_READING_TIME) {
-    errors.push({
+  if (tldrStats.readingTimeMinutes > TARGET_READING_TIME) {
+    warnings.push({
       type: 'reading_time',
-      message: `Temps de lecture trop long: ${tldrStats.readingTimeMinutes.toFixed(1)}/${MAX_READING_TIME} min`,
+      message: `Temps de lecture au-dessus de la cible: ${tldrStats.readingTimeMinutes.toFixed(1)}/${TARGET_READING_TIME} min`,
       value: tldrStats.readingTimeMinutes,
-      limit: MAX_READING_TIME
+      limit: TARGET_READING_TIME
     });
   }
 

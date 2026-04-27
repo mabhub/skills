@@ -108,14 +108,26 @@ function validateFrontMatter(frontMatter) {
     return { valid: false, errors, warnings };
   }
 
-  // Check required fields
-  const requiredFields = ['created', 'source', 'author'];
+  // Strictement requis
+  const requiredFields = ['created'];
   requiredFields.forEach(field => {
     if (!frontMatter[field]) {
       errors.push({
         type: 'missing_field',
         field,
         message: `Champ requis manquant: '${field}'`
+      });
+    }
+  });
+
+  // Recommandés (warning seulement — la source peut ne pas les fournir)
+  const recommendedFields = ['source', 'author'];
+  recommendedFields.forEach(field => {
+    if (!frontMatter[field]) {
+      warnings.push({
+        type: 'missing_recommended_field',
+        field,
+        message: `Champ recommandé manquant: '${field}' (OK si absent dans la source)`
       });
     }
   });
