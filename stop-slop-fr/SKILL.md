@@ -65,6 +65,10 @@ En dessous de 35/50 : réviser.
 
 Voir [references/examples.md](references/examples.md) pour les transformations avant/après.
 
+## Skill complémentaire
+
+`stop-slop-fr` traite la **forme** (tics LLM dans la prose). Pour l'**hygiène épistémique** d'une sortie LLM destinée à un autre humain (calibrage de certitude, vérification anti-confabulation, compression avant envoi, marquage de provenance), voir le skill `llm-output-hygiene-fr`. Séquence recommandée : d'abord `llm-output-hygiene-fr` (vérifier ce qu'on dit), ensuite `stop-slop-fr` (nettoyer comment on le dit).
+
 ## Attribution
 
 Adapté de [stop-slop](https://github.com/hardikpandya/stop-slop) de Hardik Pandya (MIT License). Adaptation française : pas une traduction mais une réécriture pour les tics spécifiques du français IA.
