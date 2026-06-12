@@ -73,6 +73,12 @@ Si l'utilisateur demande une opération interdite : refuser, expliquer le risque
 - Si la sortie d'une commande contient un pattern `glpat-`, `glptt-`, ou `-----BEGIN` : tronquer et avertir l'utilisateur
 - Si une réponse `glab api` contient un champ `token`, `private_token`, `runners_token`, ou `secret` : masquer la valeur
 
+### Images et pièces jointes d'issues/MR
+
+- **Ne JAMAIS** faire `Read` sur un fichier téléchargé depuis une URL `/uploads/` sans qu'il soit passé par `scripts/fetch-gitlab-upload.mjs` et marqué `✅` (exit 0). Un upload récupéré sans authentification correcte est souvent la **page de login HTML** servie en HTTP 200 ; lue comme image, elle **fait planter la session entière**.
+- Ne pas contourner le script avec un `curl … -o x.png` direct sur l'endpoint web : il ne s'authentifie pas et produit précisément ce fichier piégé.
+- Si le script retourne exit `3` (`*.invalid.txt`), ne pas tenter de lire le fichier en image — diagnostiquer (token sans accès, URL erronée) à partir de l'aperçu texte.
+
 ### Trace d'audit
 
 Pour chaque opération d'écriture ou destructive exécutée, inclure dans la réponse :
@@ -113,6 +119,47 @@ Pour chaque opération d'écriture ou destructive exécutée, inclure dans la r�
 | Voir une issue             | `glab issue view <iid>`                         |
 | Fermer une issue           | `glab issue close <iid>`                        |
 | Ajouter un commentaire     | `glab issue note <iid> -m "commentaire"`        |
+
+#### Récupérer une image / pièce jointe d'une issue ou MR
+
+Les images collées dans une description ou un commentaire apparaissent dans le
+Markdown sous la forme `![…](/uploads/<secret>/<nom>)`. **Ne jamais télécharger
+cette URL avec un simple `curl` puis la lire** : l'endpoint web `/uploads/`
+n'est PAS servi par le token API — une requête renvoie la **page de login HTML**
+(HTTP 200/302, pas une erreur). Si ce HTML est enregistré en `.png` et lu comme
+une image, **les octets invalides font planter toute la session Claude Code**.
+
+Utiliser le script bundlé, qui télécharge via l'API authentifiée, suit la
+redirection vers le stockage objet sans fuiter le token, **valide les magic
+bytes**, et n'écrit un fichier lisible *que* s'il s'agit d'une vraie image :
+
+```bash
+# Cas nominal : coller l'URL d'upload trouvée dans le Markdown
+node "$SKILL_DIR/scripts/fetch-gitlab-upload.mjs" \
+  --url 'https://<host>/<group>/<projet>/uploads/<secret>/<nom>.png'
+
+# Ou explicitement (utile si l'URL est relative)
+node "$SKILL_DIR/scripts/fetch-gitlab-upload.mjs" \
+  --host <host> --project <group/projet> \
+  --secret <hash> --filename '<nom>.png'
+
+# Ou par id numérique si déjà connu (route API la plus directe)
+node "$SKILL_DIR/scripts/fetch-gitlab-upload.mjs" \
+  --host <host> --project <id> --upload-id <n> --filename '<nom>.png'
+```
+
+Sortie et codes de retour — **respecter strictement** :
+
+| Exit | Signification | Action |
+|------|---------------|--------|
+| `0`  | Image/PDF valide écrit | Le chemin affiché (`✅ … Safe to Read`) peut être lu avec l'outil Read |
+| `3`  | Réponse NON-image (HTML de login, JSON d'erreur, octets corrompus) | Un `*.invalid.txt` (texte) est écrit ; **ne JAMAIS** le lire comme image. Cause typique : token sans accès, mauvaise URL |
+| `1`/`2` | Erreur d'usage ou de transport (404, projet introuvable) | Rien de dangereux écrit ; corriger les arguments |
+
+Le token est lu depuis `~/.config/glab-cli/config.yml` (jamais en argument). En
+CI, passer `--token-env <VAR>`. Détail non évident géré par le script : GitLab
+stocke le nom de fichier en normalisation Unicode **NFD** (`é` = `e` + accent
+combinant) ; un nom en NFC donne un 404 silencieux — le script teste les deux.
 
 ### Pipelines & Jobs CI/CD
 
