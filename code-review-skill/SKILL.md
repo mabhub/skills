@@ -1,5 +1,5 @@
 ---
-name: code-review
+name: code-review-skill
 description: >
   Use when the user wants to proactively audit an existing codebase — without link to a recent
   implementation. Triggers: "revue de code", "passe en revue le code", "analyse le code",
