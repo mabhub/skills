@@ -1,0 +1,15 @@
+# Sorties d'analyse — un APK décompilé peut contenir des secrets clients. Jamais commité.
+decompile/
+output/
+*.apk
+*.xapk
+*.aab
+fingerprint.json
+api-raw.json
+api-inventory.json
+openapi.json
+postman.json
+strings.json
+name-map.json
+decompile-meta.json
+report*.md
