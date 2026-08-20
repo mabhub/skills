@@ -1,0 +1,3 @@
+# Sorties d'évaluation de skills (skill-creator) : rapports générés, fixtures avec
+# dépôt git imbriqué et faux secrets, benchmarks. Reproductible, jamais versionné.
+*-workspace/
