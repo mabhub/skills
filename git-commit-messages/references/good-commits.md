@@ -43,11 +43,9 @@ Implement real-time collaborative editing
 
     Users can now edit documents simultaneously with live updates.
 
-    Technical implementation:
-    - WebSocket connection for real-time synchronization
-    - Operational transformation for conflict resolution
-    - Cursor position tracking for multi-user awareness
-    - Automatic reconnection on network interruption
+    Operational transformation was chosen over CRDTs: the documents are
+    linear text and OT keeps the payload small enough for the existing
+    WebSocket budget, at the cost of requiring a central server.
 
     Performance characteristics:
     - Supports up to 50 concurrent editors per document
@@ -123,10 +121,9 @@ Update lodash to v4.17.21 to address security vulnerability
     CVE-2021-23337: Prototype pollution vulnerability in lodash
     before v4.17.21 could allow attackers to modify object prototypes.
 
-    Changes:
-    - Update lodash dependency
-    - Run security audit: npm audit
-    - Verify tests pass with new version
+    We do not call the affected `merge`/`zipObjectDeep` paths directly,
+    but the template renderer passes user-controlled keys to `defaultsDeep`,
+    which is enough to reach it.
 
     No API changes - update is backward compatible.
 ```
@@ -147,14 +144,8 @@ Implement user profile customization
     - Privacy controls for profile visibility
     - Theme selection (light/dark/auto)
 
-    UI components:
-    - New ProfileSettings component
-    - ImageCropper for profile pictures
-    - PrivacyToggle switches
-
-    Database changes:
-    - Add user_preferences table
-    - Add profile_images table with S3 URLs
+    Profile images live in S3 rather than the database, so the existing
+    avatar backup job no longer covers them - see #612 for the follow-up.
 ```
 
 ### Améliorations de qualité de code
@@ -165,12 +156,11 @@ Refactor payment processing module for maintainability
     The payment module had grown organically and become difficult to
     test and extend with new payment providers.
 
-    Changes:
-    - Extract PaymentProvider interface
-    - Implement adapter pattern for Stripe and PayPal
-    - Add comprehensive unit tests (coverage: 45% → 87%)
-    - Separate validation logic from business logic
-    - Improve error messages for failed transactions
+    The adapter boundary is what makes the Adyen integration planned for
+    Q3 a new file rather than another branch in the dispatch function.
+
+    Coverage went from 45% to 87% along the way: the provider logic was
+    previously unreachable without hitting the live Stripe sandbox.
 
     No functional changes - all existing tests pass.
 ```
@@ -273,6 +263,36 @@ Add user login
 ```
 
 Le corps ne fait que répéter le sujet - pas utile.
+
+### ❌ Corps qui paraphrase le diff
+
+```
+Add retry logic to webhook dispatcher
+
+    - Add MAX_RETRIES constant set to 5
+    - Wrap the send() call in a for loop
+    - Add exponential backoff between attempts
+    - Update webhook_dispatcher_test.py
+```
+
+Chaque puce se lit directement dans le diff. Rien n'indique pourquoi les
+webhooks échouaient, ni pourquoi 5 tentatives. Version utile :
+
+```
+Add retry logic to webhook dispatcher
+
+    The partner endpoint returns 503s while restarting, for about 2
+    minutes twice a day. Dropped events were not replayable and required
+    a manual resync.
+
+    5 attempts with backoff cover a 3-minute window, which absorbs the
+    observed outage without tying up a worker for too long.
+```
+
+Les listes à rubrique (« Features added: », « Breaking changes: », « Migration
+path: ») restent utiles quand elles portent une information absente du diff ou
+regroupent un changement trop large pour être lu d'un coup. Quand une rubrique
+ne fait que renommer les hunks, la supprimer.
 
 ### ❌ Mauvais choix de verbe
 

@@ -14,11 +14,13 @@
 # - Introduce caching layer for API responses
 
 # Exemple de bon corps :
-#     The previous implementation had performance issues under load.
+#     Creating one connection per request saturated the database under
+#     load; the pool keeps latency stable past ~200 concurrent users.
 #
-#     Changes:
-#     - Implement connection pool with configurable size
-#     - Add timeout handling for stale connections
-#     - Reuse connections across requests
+#     Also unblocks the read-replica routing planned in #124, which
+#     needs a single place to pick a connection.
 #
 #     Refs: #123
+
+# Le corps dit POURQUOI et CE QUE ÇA PERMET.
+# Il n'énumère pas les modifications : le diff les montre déjà.

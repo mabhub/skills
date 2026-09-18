@@ -62,9 +62,20 @@ Placer les informations clés dans les 50 premiers caractères (visibles dans la
 
 ### Quand inclure un corps
 
-- Le sujet est auto-explicatif → Pas de corps nécessaire
-- Changements complexes → Ajouter une explication détaillée
-- Contexte nécessaire → Expliquer le "pourquoi", pas seulement le "quoi"
+**Le corps est optionnel, et l'absence de corps est un résultat valide.** Un
+corps qui ne fait que redire le diff en prose est du bruit, pas de la
+documentation.
+
+Un corps se justifie dès que l'une de ces conditions tient :
+
+- Le sujet seul ne suffit pas à comprendre le changement
+- Le **rôle** du changement ou le **pourquoi** restent invisibles, même si le
+  *quoi* est limpide dans le diff — un diff parfaitement lisible ne rend pas le
+  corps inutile
+- Le changement a des conséquences qui dépassent les lignes modifiées
+
+Sinon, s'arrêter au sujet. Ce qu'il faut alors écrire est décrit plus bas, en
+[Directives de contenu](#directives-de-contenu).
 
 ### Structure du corps
 
@@ -76,11 +87,74 @@ Placer les informations clés dans les 50 premiers caractères (visibles dans la
 
 ### Directives de contenu
 
-- Expliquer **pourquoi** le changement a été fait
-- Décrire **quel** problème il résout
-- Mentionner le **contexte** s'il n'est pas évident depuis le code
+Trois axes structurent un corps utile :
+
+- **Pourquoi** le changement a été fait : cause racine, symptôme observé,
+  contrainte externe invisible dans le code (bug d'un outil tiers, limite
+  d'API, décision produit)
+- **Quel** problème il résout
+- **Ce qu'il permet** : le rôle du changement dans l'ensemble — ce qui devient
+  possible, ce qu'il débloque pour la suite, ce qu'il autorise à supprimer plus
+  tard. Un diff peut être parfaitement clair sans que sa finalité le soit ;
+  c'est souvent l'information la plus durable du message.
+
+Compléments utiles selon le cas :
+
+- Les alternatives écartées et la raison de leur rejet
+- Les conséquences non locales : rupture de compatibilité, migration requise,
+  effet de bord sur un autre composant
+- Ce qui n'a **volontairement pas** été fait, et pourquoi
+- Le **contexte** s'il n'est pas évident depuis le code
 - Lier aux issues si pertinent : `Refs: #123` (seulement si l'issue existe)
 - Éviter la redondance avec le sujet
+
+### Ne pas paraphraser le diff
+
+Le diff est joint au commit et reste lisible indéfiniment. Le corps sert donc
+en priorité à écrire ce que le diff ne montre pas de lui-même : ce qui s'en
+déduit directement peut généralement être laissé de côté, au profit du sens.
+
+Formulations qui n'apportent typiquement rien de plus que le diff :
+
+- L'inventaire des fichiers touchés (`git show --stat` le donne déjà)
+- Les noms de fonctions/classes/constantes ajoutées, renommées ou supprimées
+- Le récit ligne à ligne de la modification ("remplace la boucle `for` par un
+  `map`", "ajoute le champ `timeout` à la config")
+- La reformulation en prose d'un changement de valeur ("passe le délai de 30 à
+  60 secondes") — utile en revanche si le **pourquoi** de la valeur est donné
+- Les comptages décoratifs ("3 nouveaux tests", "12 fichiers migrés")
+- La répétition d'un message d'erreur, d'un log ou d'un commentaire déjà ajouté
+  dans le code par ce même commit
+
+**Test de l'information déductible** : pour chaque puce envisagée, se demander
+« un lecteur qui a le diff sous les yeux apprend-il quelque chose ? ». Si la
+réponse est non, la puce peut sauter. Si toutes les puces tombent, le sujet
+suffit probablement.
+
+**Exemple** — même commit, corps gonflé puis corps utile :
+
+❌ Paraphrase du diff :
+
+```
+Increase upload timeout for large attachments
+
+    - Change UPLOAD_TIMEOUT from 30 to 60 in config.js
+    - Update the timeout parameter in uploadFile()
+    - Adjust the corresponding test assertion
+```
+
+✅ Information non déductible :
+
+```
+Increase upload timeout for large attachments
+
+    The upstream proxy buffers request bodies before forwarding them, which
+    adds up to 25s on attachments over 50MB. The old timeout cut the
+    connection before the proxy was done.
+
+    60s matches the proxy's own limit; aligning both avoids a client retry
+    that re-uploaded the whole file.
+```
 
 ### Co-auteurs
 
@@ -119,11 +193,15 @@ git add <files>
 
 ### 4. Décider si un corps est nécessaire
 
-Se demander :
+Confronter le commit aux conditions de [Quand inclure un
+corps](#quand-inclure-un-corps). Si aucune ne tient, le sujet suffit.
 
-- Le sujet est-il complet et clair en soi ?
-- Y a-t-il un contexte qui aiderait les futurs lecteurs ?
-- Y a-t-il plusieurs changements liés ?
+Si l'une tient, appliquer le test de l'information déductible (voir [Ne pas
+paraphraser le diff](#ne-pas-paraphraser-le-diff)) et garder ce qui y survit.
+
+Ne pas rédiger un corps par réflexe parce que le diff est volumineux — un gros
+diff mécanique (renommage, migration, reformatage) se passe souvent
+d'explication, alors qu'un diff d'une ligne peut en exiger une.
 
 ### 5. Formater le corps (si nécessaire)
 
@@ -153,12 +231,11 @@ Implement JWT-based user authentication
 ```
 Refactor database connection pooling logic
 
-    The previous implementation created a new connection for each request,
-    causing performance degradation under load.
+    Creating one connection per request saturated the database past ~200
+    concurrent users, where latency went from 40ms to several seconds.
 
-    - Implement connection pool with configurable size
-    - Add connection timeout handling
-    - Reuse connections across requests
+    Also unblocks the read-replica routing planned in #457, which needs a
+    single place to pick a connection.
 
     Refs: #456
 ```
