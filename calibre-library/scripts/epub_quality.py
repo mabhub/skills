@@ -164,7 +164,9 @@ def _analyse(z, path, deep):
     r['toc'] = toc
     r['mojibake'] = len(re.findall('Ã[©¨ ª®´§¢]|â€', t))
     r['ocr_hyph'] = len(re.findall(r'[a-zà-ÿ]{2,}- [a-zà-ÿ]{2,}', t))
-    r['empty_p'] = len(re.findall(r'<p\b[^>]*>(\s|&nbsp;|&#160;| )*</p>', rw))
+    # \s couvre déjà U+00A0 : aucune alternative recouvrante, et *+ interdit le retour arrière
+    # (sinon 2^N essais sur <p> + N blancs non suivis de </p>, cf. references/pieges.md)
+    r['empty_p'] = len(re.findall(r'<p\b[^>]*>(?:\s|&nbsp;|&#160;)*+</p>', rw))
     r['style'] = rw.count('style="')
     r['font'] = len(re.findall(r'<font\b', rw, re.I))
     r['résidus'] = residues(z, deep) or '-'

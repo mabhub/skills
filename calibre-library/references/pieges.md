@@ -151,6 +151,17 @@ Chaque piège a coûté au moins une passe ou des données. Classés par outil.
 - Chaque détecteur de doublons a produit des faux positifs : traductions distinctes,
   volumes distincts, homonymes (deux romancières au même nom de famille). Comparer le
   contenu réel avant toute suppression.
+- **Regex à alternatives recouvrantes → blocage silencieux.** `(\s|&nbsp;|X)*`, où X
+  était une insécable U+00A0 littérale, a figé `epub_quality.py` sur *Dune* : `\s` couvre déjà
+  U+00A0, donc 52 blancs après `<p>` sans `</p>` derrière = 2^52 essais. Symptôme : CPU
+  à 100 %, aucune lecture disque, aucune erreur ; `match_library.py` reste figé au même
+  fichier. Diagnostic en 10 s, sans toucher au script (pile affichée au bout de 8 s) :
+  `python3 -c 'import faulthandler, runpy, sys; faulthandler.dump_traceback_later(8,
+  exit=True); sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name="__main__")'
+  scripts/epub_quality.py LIVRE.epub`. Contournement immédiat : `match_library.py
+  --no-text` (le texte ne sert qu'aux mots et aux résidus). → Dans une répétition `(A|B)*` ou `(A+)*`, aucune
+  alternative ne doit pouvoir consommer le même texte qu'une autre ; `*+` (Python ≥ 3.11)
+  interdit en plus le retour arrière.
 - Estimer un gain (compression d'images) sur les plus gros fichiers le surestime
   (−47 % estimés, −8 % mesurés). Une recompression « sans perte » peut grossir un PNG :
   ne garder le résultat que s'il est plus petit ET identique au pixel près.
