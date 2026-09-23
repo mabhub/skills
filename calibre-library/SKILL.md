@@ -59,8 +59,9 @@ Non négociables. Chacun répond à un incident réel.
   `<backup_dir>/metadata-PRE-<LOT>-<date>.db`, jamais dans le scratchpad ou `/tmp`.
   Tout fichier de livre remplacé ou supprimé est d'abord copié :
   `backup_lot.py <LOT> --trash <chemin>…` → `<backup_dir>/trash/<LOT>/`.
-- **Identifiants d'acheteur** : purger `iTunesMetadata.plist` et `META-INF/rights.xml`
-  à chaque ajout ou remplacement, dans le même lot (`references/residus-acheteur.md`).
+- **Identifiants d'acheteur** : purger `iTunesMetadata.plist` et `rights.xml` (dans
+  `META-INF/` chez Adobe, à la racine chez Kobo) à chaque ajout ou remplacement, dans
+  le même lot (`references/residus-acheteur.md`).
   `META-INF/encryption.xml` n'est pas un DRM s'il ne vise que des polices : le classer
   par ses URI, ne pas le « purger ». **Ne jamais afficher la valeur** d'un identifiant
   d'acheteur (compte, e-mail, n° de commande) : seulement sa présence.

@@ -10,9 +10,10 @@ import.
 | Porteur | Origine | Contenu typique | Traitement |
 |---|---|---|---|
 | `iTunesMetadata.plist` (et `-original`) | Apple Books | `unique-id`, `package-file-hash`, `downloadId`, identifiant de compte | supprimer |
-| `META-INF/rights.xml` | Kobo, Adobe ADEPT | horodatage d'achat, licence | supprimer (s'il accompagne un DRM Adobe, le livre est chiffré : voir plus bas) |
+| `META-INF/rights.xml` | Adobe ADEPT | licence | supprimer (s'il accompagne un DRM Adobe, le livre est chiffré : voir plus bas) |
+| `rights.xml` **à la racine** | Kobo Store (kepub) | `<kdrm><timestamp>` : horodatage d'achat | supprimer. Ne pas le chercher seulement dans `META-INF/` : un contrôle limité à ce chemin l'a manqué sur deux achats Kobo |
 | `iTunesArtwork` | Apple Books | image de couverture | pas un identifiant ; résidu Apple, à signaler et laisser à l'utilisateur |
-| tatouage social | libraires | e-mail, n° de commande, « acheté par » dans le texte | retirer les passages concernés (`scan_residus.py --deep` les signale) |
+| tatouage social | libraires | e-mail, n° de commande, « acheté par » dans le texte | retirer les passages concernés (`scan_residus.py --deep` les signale ; **relire le contexte** avant d'agir, le texte d'un roman peut déclencher le détecteur) |
 | `dc:identifier` propriétaire, tags ou commentaires de store | imports | id de commande ou de compte | retirer du champ Calibre et de l'OPF interne |
 
 **Ne jamais afficher la valeur** de ces identifiants (dans un rapport, une commande, un
@@ -41,7 +42,7 @@ a manqué deux fichiers sur onze là où le parcours Python de la table `data` l
 2. `backup_lot.py PURGE-RESIDUS --trash <epub>…` → base sauvegardée et EPUB d'origine copiés.
 3. Pour chaque EPUB, sur une **copie de travail** :
    `zip -d copie.epub 'iTunesMetadata.plist' 'META-INF/rights.xml'` (noms exacts listés
-   par le scan).
+   par le scan : `rights.xml` tout court pour un kepub Kobo).
 4. Contrôler la copie : `unzip -t` propre ; `mimetype` toujours première entrée
    (`unzip -Z1 copie.epub | head -1`) et non compressé ; OPF intact.
 5. Réinjecter : `calibredb add_format <id> copie.epub` (remplace par défaut, **pas** de

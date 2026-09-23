@@ -33,8 +33,11 @@ import lib_config  # noqa: E402
 FONT_EXT = re.compile(r'\.(ttf|otf|woff2?|eot)$', re.I)
 FONT_ALGOS = {'http://www.idpf.org/2008/embedding', 'http://ns.adobe.com/pdf/enc#RC'}
 IMG_EXT = re.compile(r'\.(jpe?g|png|gif|svg|webp)$', re.I)
-EMAIL = re.compile(r'[\w.+-]+@[\w-]+\.[\w.-]+')
-BUYER_WORDS = re.compile(r'(acheté par|purchased by|licensed to|licence accordée à|'
+# Domaine terminé par un TLD alphabétique : « …@12.87 » (CFI d'un calibre_bookmarks.txt) n'est pas un e-mail.
+# Lookbehind initial : sans lui, une longue suite (base64 inline) rend la recherche quadratique
+EMAIL = re.compile(r'(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,}\b')
+# \b initial : « racheté par le groupe Marriott » n'est pas une mention d'achat
+BUYER_WORDS = re.compile(r'\b(acheté par|purchased by|licensed to|licence accordée à|'
                          r'n° de commande|order (id|number)|transaction id)', re.I)
 
 
@@ -66,8 +69,9 @@ def residues(z, deep=False):
             found.append(f'acheteur:{n}')
         elif leaf == 'iTunesArtwork':
             found.append(f'apple-artwork:{n}')
-    if 'META-INF/rights.xml' in names:
-        found.append('acheteur:META-INF/rights.xml')
+        # Adobe le range dans META-INF/, Kobo (kepub) à la racine ; ailleurs, c'est du contenu
+        elif n in ('rights.xml', 'META-INF/rights.xml'):
+            found.append(f'acheteur:{n}')
     if 'sinf.xml' in base:
         found.append(f'DRM:{base["sinf.xml"]}')
     enc = classify_encryption(z)
