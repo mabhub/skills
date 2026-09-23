@@ -1,0 +1,9 @@
+{
+  "library": "~/Documents/Calibre",
+  "exclude_libraries": [
+    "~/Documents/Calibre-test"
+  ],
+  "backup_dir": "{library}/.calibre-mcp-backups",
+  "archive_dir": "/mnt/autre-disque/calibre-backups",
+  "work_dir": "~/notes/calibre"
+}
