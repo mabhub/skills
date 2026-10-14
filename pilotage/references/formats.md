@@ -10,8 +10,10 @@ de doute sur l'endroit où ranger une information.
 - Sections de `plan.md`
 - `connaissances.md`
 - Journal : statuts `[fait]` et `[décision·Claude]`
+- Identifiants
 - Fichiers complémentaires (dont le registre d'essais)
 - Specs et plans détaillés existants
+- Plan superpowers en cours d'exécution
 - Nettoyage à chaque point d'étape
 
 ## Rôle de chaque fichier
@@ -51,8 +53,8 @@ laquelle croire.
 | Où on en est                   | Prose courte pour un chantier linéaire ; tableau « Axe \| État \| Reste à vérifier » quand il avance sur plusieurs fronts                                                                                        |
 | Plan                           | Macro-plan à cocher. Une étape cochée a son `[fait]` au journal. Un arrêt pour relecture par l'utilisateur se marque `⏸ relecture`                                                                                |
 | En vigueur                     | `[directive]` et `[décision·…]` actives, chacune avec un renvoi à sa source                                                                                                                                      |
-| Hypothèses à vérifier          | `[hypothèse] … → vérifier par : … · bloque : <étape ou décision>`                                                                                                                                                 |
-| En attente de l'utilisateur    | `[question]` à trancher, `[attente]` actions à faire de son côté                                                                                                                                                 |
+| Hypothèses à vérifier          | `[hypothèse H1] … → vérifier par : … · bloque : <étape ou identifiant>`                                                                                                                                                 |
+| En attente de l'utilisateur    | `[question Q1]` à trancher, `[attente A1]` actions à faire de son côté                                                                                                                                                 |
 | Reporté volontairement         | Ce qu'on a choisi de ne pas faire maintenant : quoi, pourquoi, ce qui déclencherait sa reprise. Distingue un choix assumé d'un oubli                                                                              |
 | Pièges connus                  | Faux échecs et comportements trompeurs déjà rencontrés, avec la consigne (« 404 passagers du service X : relancer avant de conclure »). Évite de déboguer un faux problème après une reprise                    |
 | Hors dépôt                     | Tout ce qui a changé hors de git (fichiers installés ou remplacés, configuration système, base, service distant, ressource temporaire à supprimer avec son échéance) : quoi, où, original, retour arrière           |
@@ -78,9 +80,9 @@ Une entrée par point d'étape (ou par événement important), ajoutée en fin d
 ```
 ## 2026-10-09 15:40 — <titre court>
 - [fait] Étape 2 : export CSV — preuve : `npm test -- export` 0 échec (12 avant) — commits abc1234..def5678
-- [décision·Claude] Pagination par curseur plutôt que par offset — pourquoi : tri instable — coût si faux : faible (1 fonction)
+- [décision·Claude C4] Pagination par curseur plutôt que par offset — pourquoi : tri instable — coût si faux : faible (1 fonction)
 - [constat] L'API renvoie 429 au-delà de 10 req/s (source : `scripts/sonde.sh`, sortie dans mesures/429.txt)
-- [remplace] 2026-10-08 « format JSON » → CSV, à la demande de l'utilisateur
+- [remplace] D2 (format JSON) → [directive D5] CSV, à la demande de l'utilisateur
 ```
 
 - `[fait]` : une étape terminée cite **la commande de vérification, son résultat, et les
@@ -90,6 +92,32 @@ Une entrée par point d'étape (ou par événement important), ajoutée en fin d
   fichier dans `decisions/` et, idéalement, une validation par l'utilisateur.
 - La source d'un constat peut être un sous-agent (« source : relecture par un sous-agent,
   rapport résumé ici ») : préciser alors ce qu'il a vérifié.
+
+## Identifiants
+
+Inspirés des `FR-001` de spec-kit : un renvoi court et sans ambiguïté coûte moins cher
+qu'une citation recopiée, et ne diverge pas de l'original.
+
+| Préfixe | Statuts                                      |
+|---------|----------------------------------------------|
+| `D`     | `[directive]`                                |
+| `C`     | `[décision·utilisateur]`, `[décision·Claude]` |
+| `H`     | `[hypothèse]`                                |
+| `Q`     | `[question]`                                 |
+| `A`     | `[attente]`                                  |
+
+- L'identifiant s'écrit **dans la marque, là où l'élément est défini** :
+  `[hypothèse H3] …`. C'est ce que `reprise` compte pour afficher les prochains libres
+  (dans `plan.md`, `journal.md`, `connaissances.md`). Ailleurs, l'identifiant seul :
+  `bloque : H3`, `[remplace] C2 → C6`, « En vigueur : D1, C3 ».
+- Numérotation par chantier, croissante, **jamais réutilisée ni renumérotée**, même
+  quand l'élément est réglé et retiré du plan : le journal le cite encore.
+- Une décision détaillée garde son numéro de fichier (`decisions/003-…`) ; sa ligne
+  dans « En vigueur » porte aussi un `C`.
+- `[fait]`, `[constat]`, `[abandonné]` n'en ont pas : on ne les remplace pas, on les
+  date.
+- Chantier ouvert avant cette règle : ne pas renuméroter l'existant ; attribuer des
+  identifiants aux éléments encore actifs au prochain point d'étape.
 
 ## Fichiers complémentaires
 
@@ -126,6 +154,35 @@ Un projet a souvent déjà une spec ou un plan d'exécution détaillé (par exem
 « Repères » et garde seulement le macro-plan. Une fois exécuté, un plan détaillé est
 figé : c'est de l'historique, et les écarts se tracent au journal (`[remplace]`), pas en
 le réécrivant.
+
+## Plan superpowers en cours d'exécution
+
+`superpowers:executing-plans` et `superpowers:subagent-driven-development` tiennent un
+registre par plan : `.superpowers/sdd/<plan>/progress.md` (ignoré par git). Première
+ligne `# SDD ledger — plan: <fichier>`, puis une ligne `Task <N>: complete (commits …)`
+par tâche terminée, et les arbitrages pris en cours de route. superpowers **supprime ce
+dossier** quand la revue finale de la branche est propre, avant
+`finishing-a-development-branch`, et `git clean -fdx` le détruit aussi.
+
+**Condition** : l'allègement ci-dessous ne vaut que si l'un des deux skills a été
+invoqué **dans la session courante** et que son registre existe. Plan exécuté à la main,
+dans une autre session, ou registre absent : le journal se tient comme d'habitude, sans
+rien déléguer.
+
+Quand la condition est remplie :
+
+- **Reste dans le registre seul** : l'avancement tâche par tâche, les arbitrages
+  techniques internes à une tâche, les tours de revue. Ne pas les recopier.
+- **Le `[fait]` d'une macro-étape** renvoie au registre et aux commits :
+  `[fait] Étape 3 : tâches 1 à 6 du plan — preuve : progress.md (6 complete), suite
+  verte — commits abc1234..def5678`.
+- **Va toujours au journal**, dès le point d'étape : directives et décisions de
+  l'utilisateur, changements d'avis, constats coûteux, pièges, reports, changements
+  « Hors dépôt », et tout arbitrage qui écarte le plan de sa spec.
+- **Avant la revue finale de la branche** (donc avant la suppression du registre) :
+  relire le registre (`grep -n -v 'Task [0-9]*: complete' <registre>` suffit souvent)
+  et remonter au journal ce qui doit survivre au plan. Ensuite, le journal ne cite plus
+  `progress.md` comme preuve, mais les commits.
 
 ## Nettoyage à chaque point d'étape
 

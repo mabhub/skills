@@ -1,19 +1,11 @@
 ---
 name: pilotage
 description: >
-  Pilotage des chantiers dans un dossier local `.pilotage/` (exclu de git via
-  .git/info/exclude, ni commité ni jetable) : macro-plan, journal des décisions et
-  changements d'avis, statut de chaque élément (directive, décision, constat,
-  hypothèse), reprise dans une conversation neuve. Fait des points d'étape : vérifie
-  que tout ce qui doit être tracé l'est, puis dit si c'est le moment de faire /clear,
-  /compact ou rien, avec la phrase de reprise prête à coller. But : contextes courts,
-  moins de tokens, sans perte de qualité. À charger dès qu'une tâche dépasse quelques
-  étapes, quand une sous-tâche se termine, avant une pause, quand le contexte grossit,
-  ou au début d'une session qui reprend un travail en cours. Trigger phrases :
-  "/pilotage", "point d'étape", "fais le point", "je peux /clear ?", "faut-il
-  compacter", "je pars manger", "je reprends demain", "on reprend", "reprends le
-  chantier", "où en était-on", "note de passation", "ouvre un chantier", "checkpoint",
-  "handoff note", "resume where we left off".
+  Pilotage des chantiers longs dans un dossier local `.pilotage/` exclu de git :
+  macro-plan, journal, statut de chaque élément tracé, points d'étape qui disent s'il
+  faut /clear, /compact ou continuer, reprise dans une conversation neuve. Pour une
+  tâche de plusieurs étapes ou une reprise. Trigger phrases : "/pilotage", "point
+  d'étape", "je peux /clear ?", "on reprend", "reprends le chantier".
 ---
 
 # Pilotage des chantiers
@@ -51,30 +43,17 @@ coûterait plus qu'il ne rapporte.
 
 ## Le dossier `.pilotage/`
 
-```
-.pilotage/
-├── INDEX.md                  # une ligne par chantier → seul fichier lu d'office
-└── <chantier>/               # slug : minuscules, chiffres, tirets
-    ├── plan.md               # objectif, macro-plan, « où on en est », ce qui est en vigueur
-    ├── journal.md            # ajout en fin seulement, lu par la fin
-    ├── connaissances.md      # ce qui est établi, par thème, avec confiance et sources
-    ├── decisions/NNN-*.md    # décisions qui méritent leur contexte et leurs options comparées
-    └── …                     # fichiers complémentaires, selon les besoins du chantier
-```
+Un `INDEX.md` à la racine (une ligne par chantier), puis un dossier par chantier :
+`plan.md`, `journal.md`, `connaissances.md`, `decisions/`, et des fichiers
+complémentaires au besoin. **Ouvrir ou clore un chantier** : lire
+`references/ouvrir-clore.md` (structure du dossier, `init`, pointeur mémoire,
+contrôle de convergence). Une reprise n'en a pas besoin.
 
-- `init` crée le dossier et ajoute `/.pilotage/` au fichier `info/exclude` du dépôt
-  (via `git rev-parse --git-path`, donc correct aussi dans un worktree). Hors dépôt
-  git, rien à exclure.
 - Le dossier est caché et exclu de git, donc `rg` et l'outil Grep l'ignorent par
   défaut. Y accéder par chemin explicite (`Read`, ou `grep -r … .pilotage/`).
-- **Mémoire** : au premier `init` d'un projet, enregistrer une mémoire projet d'une
-  ligne qui pointe vers `.pilotage/INDEX.md` et `/pilotage reprise`. Rien d'autre :
-  la mémoire est rechargée à chaque session, son contenu se paie à chaque tour.
-
-- **Formats détaillés** dans `references/formats.md` : rôle de chaque fichier, sections
-  de `plan.md`, `connaissances.md`, fichiers complémentaires (registre d'essais, preuves
-  à conserver), articulation avec une spec ou un plan détaillé existant. Le lire à
-  l'ouverture d'un chantier, ou en cas de doute sur l'endroit où ranger une information.
+- **Formats détaillés** dans `references/formats.md` : rôle et sections de chaque
+  fichier, identifiants, fichiers complémentaires, articulation avec une spec ou un plan
+  superpowers. Le lire à l'ouverture, ou en cas de doute sur où ranger une information.
 
 En bref : `plan.md` est la vue à jour, `journal.md` la trace, `connaissances.md` ce qui
 est établi. **Une seule source par information** : l'avancement ne vit que dans les
@@ -102,29 +81,17 @@ sans marque devient une consigne. Chaque élément porte donc un statut :
 
 Règles :
 
+- **Identifiants** : `[directive]`, `[décision·…]`, `[hypothèse]`, `[question]` et
+  `[attente]` portent un identifiant court au point où on les écrit :
+  `[hypothèse H2]`, `[directive D1]` (préfixes D, C pour décision, H, Q, A). Jamais
+  réutilisé ni renuméroté ; `reprise` affiche les prochains libres. Ailleurs, on renvoie
+  par l'identifiant seul (`bloque : H2`, `[remplace] D1 → D4`) sans recopier le texte.
 - Un changement d'avis ne réécrit jamais l'entrée passée du journal. On ajoute une
   entrée `[remplace]`, puis on met à jour la section « En vigueur » de `plan.md`.
 - « En vigueur » ne contient que des `[directive]` et des `[décision·…]` actives, chacune
-  avec un renvoi vers sa source (date de l'entrée du journal ou fichier de décision).
+  avec son identifiant et un renvoi vers sa source (entrée du journal ou fichier de décision).
 - Quand l'utilisateur contredit le suivi, c'est son message actuel qui l'emporte, et
   on trace le `[remplace]`.
-
-## Ouvrir un chantier
-
-Pour une tâche de plusieurs étapes ou qui s'étalera sur plusieurs sessions :
-
-1. `pilotage.mjs init --chantier <slug> --titre "<titre>"` : crée `plan.md`,
-   `journal.md` et `connaissances.md`.
-2. Lire `references/formats.md` si ce n'est pas déjà fait dans la session.
-3. Remplir `plan.md` : objectif, critère de fin (une commande et son résultat attendu
-   quand c'est possible), macro-plan en étapes vérifiables. S'il existe déjà une spec
-   ou un plan détaillé, y renvoyer sans le recopier. Faire valider le macro-plan par
-   l'utilisateur ; ses consignes vont en `[directive]`.
-4. Ajouter la ligne du chantier dans `INDEX.md` (section « Actifs »).
-5. Si c'est le premier chantier du projet, créer le pointeur mémoire (voir plus haut).
-
-Une tâche de deux ou trois tours n'a pas besoin de chantier. Le coût du suivi doit
-rester inférieur à ce qu'il fait gagner.
 
 ## Faire un point d'étape
 
@@ -158,7 +125,7 @@ Claude à un moment opportun (voir plus bas).
 
      ## 2026-10-09 15:40 — <titre court>
      - [constat] … (source : src/x.js:42)
-     - [décision·utilisateur] … — pourquoi : …
+     - [décision·utilisateur C3] … — pourquoi : …
      EOF
      ```
    - `plan.md` par Edit ciblés : « Où on en est », cases du plan, « En vigueur »,
@@ -186,10 +153,15 @@ Claude à un moment opportun (voir plus bas).
 
    Pour `/compact`, fournir les consignes prêtes à coller
    (`/compact garde <…>, oublie <…>`). Pour « continuer », dire quand refaire le point
-   (« après le test qui confirme l'hypothèse H »).
+   (« après le test qui confirme H2 »).
 
 Le suivi doit être à jour **avant** la recommandation. Une recommandation de `/clear`
 avec un suivi incomplet fait perdre exactement ce que le skill doit protéger.
+
+**Plan superpowers exécuté dans cette session** (`executing-plans` ou
+`subagent-driven-development` invoqué, registre `.superpowers/sdd/<plan>/progress.md`
+présent) : lire la section correspondante de `references/formats.md` avant le premier
+point d'étape. Faute de l'avoir lue, tenir le journal comme d'habitude.
 
 ## Choisir entre `/clear`, `/compact` et continuer
 
@@ -222,7 +194,9 @@ Une fois le skill chargé dans la session, le proposer en une ligne :
 - un long debug vient d'aboutir ;
 - la tâche suivante touche une autre zone du code ;
 - l'utilisateur annonce une pause ;
-- le contexte dépasse un seuil.
+- le contexte dépasse un seuil ;
+- la dernière étape du plan est cochée : proposer alors de clore, avec le contrôle de
+  convergence de `references/ouvrir-clore.md`.
 
 Une ligne suffit (« Bon moment pour un point d'étape : étape 2 validée, contexte ~180K.
 Je le fais ? »). Ne pas le proposer à chaque tour : une proposition refusée n'est pas
@@ -235,9 +209,10 @@ Dans une session neuve :
 1. `pilotage.mjs reprise <slug>` : un seul appel affiche `INDEX.md`, `plan.md`, les
    3 dernières entrées du journal (`--entrees N` pour plus), le statut des décisions,
    les titres de `connaissances.md`, la liste des fichiers complémentaires (nom et
-   taille, sans leur contenu), `git status` et les derniers commits. Il signale aussi
-   un `.pilotage/` qui ne serait plus exclu de git et les chemins cités dans « Repères »
-   devenus introuvables. Sans slug, il affiche l'index pour choisir.
+   taille, sans leur contenu), les prochains identifiants libres, les registres
+   superpowers en cours (dépôt et worktrees), `git status` et les derniers commits. Il
+   signale aussi un `.pilotage/` qui ne serait plus exclu de git et les chemins cités
+   dans « Repères » devenus introuvables. Sans slug, il affiche l'index pour choisir.
 2. **Confronter le suivi au dépôt** : une étape notée faite doit se voir dans git ; des
    fichiers modifiés non mentionnés signalent un suivi en retard. Signaler l'écart.
    Pour la section « Hors dépôt », que git ne voit pas, vérifier au besoin que l'état
@@ -249,13 +224,6 @@ Dans une session neuve :
 4. Ne lire une décision détaillée ou une entrée ancienne du journal que si la tâche du
    moment en a besoin (`grep -n` dans `.pilotage/<slug>/` plutôt qu'une lecture
    complète).
-
-## Clore un chantier
-
-1. Dernière entrée de journal : résultat, ce qui reste hors périmètre.
-2. Dans `INDEX.md`, déplacer la ligne vers « Clos » avec le résultat en une phrase.
-3. Garder les fichiers : ils ne coûtent rien tant qu'on ne les lit pas. Ne rien
-   supprimer sans demande explicite.
 
 ## Écrire économe
 

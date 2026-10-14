@@ -6,7 +6,8 @@
  *   init [--chantier <slug>] [--titre <titre>]   create .pilotage/ (git-excluded) and optionally a chantier
  *   decision <slug> <titre...>                   create the next numbered decision file
  *   modele <slug> <essais|connaissances>         add an optional template to a chantier
- *   reprise [<slug>] [--entrees N]               print what a new session needs to resume (index, plan, last journal entries, git)
+ *   reprise [<slug>] [--entrees N]               print what a new session needs to resume (index, plan, last journal entries,
+ *                                                next free ids, superpowers ledgers, git)
  *   contexte [--session <id>]                    measure the current session: context size, pauses, cache rewrites
  *
  * Output is French (user-facing). Transcript content is never printed: `contexte` reads only
@@ -217,6 +218,60 @@ const extraFiles = dir => fs.readdirSync(dir, { recursive: true, withFileTypes: 
     return `- ${rel} (${lines === null ? `${Math.round(size / 1024)} Ko` : `${lines} ligne${lines > 1 ? 's' : ''}`})`;
   });
 
+const ID_PREFIXES = { directive: 'D', 'décision·utilisateur': 'C', 'décision·Claude': 'C', hypothèse: 'H', question: 'Q', attente: 'A' };
+const ID_DEFINITION_RE = new RegExp(`\\[(${Object.keys(ID_PREFIXES).join('|')}) ([A-Z])(\\d+)\\]`, 'g');
+
+/**
+ * Computes the next free short id per prefix (D, C, H, Q, A) from the ids defined in a chantier's
+ * base files. Only definition sites (`[hypothèse H3]`) count, so bare references cannot inflate them.
+ * @param {string} dir - chantier directory
+ * @returns {string} e.g. "D4 · C2 · H5 · Q1 · A1"
+ */
+const nextIds = dir => {
+  const text = ['plan.md', 'journal.md', 'connaissances.md']
+    .map(name => path.join(dir, name))
+    .filter(file => fs.existsSync(file))
+    .map(file => fs.readFileSync(file, 'utf8'))
+    .join('\n');
+  const max = [...text.matchAll(ID_DEFINITION_RE)].reduce(
+    (acc, [, , prefix, num]) => ({ ...acc, [prefix]: Math.max(acc[prefix] ?? 0, Number(num)) }),
+    {},
+  );
+  return [...new Set(Object.values(ID_PREFIXES))].map(prefix => `${prefix}${(max[prefix] ?? 0) + 1}`).join(' · ');
+};
+
+/**
+ * Summarizes the superpowers plan ledgers (`.superpowers/sdd/<plan>/progress.md`) found in the
+ * repository and its worktrees. A ledger exists while executing-plans or subagent-driven-development
+ * runs a plan; superpowers deletes the workspace once the final branch review is clean.
+ * @param {string} root - project root
+ * @returns {string[]} one line per ledger
+ */
+const superpowersLedgers = root => {
+  const worktrees = (git(['worktree', 'list', '--porcelain'], root) ?? '')
+    .split('\n')
+    .filter(line => line.startsWith('worktree '))
+    .map(line => line.slice('worktree '.length));
+  return [...new Set([root, ...worktrees])]
+    .map(tree => path.join(tree, '.superpowers', 'sdd'))
+    .filter(base => fs.existsSync(base))
+    .flatMap(base => [
+      path.join(base, 'progress.md'),
+      ...fs.readdirSync(base, { withFileTypes: true })
+        .filter(entry => entry.isDirectory())
+        .map(entry => path.join(base, entry.name, 'progress.md')),
+    ])
+    .filter(file => fs.existsSync(file))
+    .map(file => {
+      const lines = fs.readFileSync(file, 'utf8').split('\n').map(line => line.trim()).filter(Boolean);
+      const plan = lines[0]?.match(/plan: (.*)$/)?.[1] ?? '?';
+      const done = lines.filter(line => /Task \d+: complete/.test(line)).length;
+      const date = fs.statSync(file).mtime.toISOString().slice(0, 10);
+      const last = (lines.at(-1) ?? '').slice(0, 120);
+      return `- ${path.relative(root, file) || file} — plan : ${plan} — ${done} tâche(s) complete — modifié le ${date}\n  dernière ligne : ${last}`;
+    });
+};
+
 /**
  * Finds backticked paths in the "Repères" section of a plan that no longer exist.
  * A path is resolved against the chantier directory, then the project root; `~` is expanded
@@ -287,8 +342,11 @@ const cmdReprise = ({ flags, positional }) => {
   if (decisions.length > 0) console.log(`=== ${slug}/decisions ===\n${decisions.join('\n')}\n`);
   const others = extraFiles(dir);
   if (others.length > 0) console.log(`=== ${slug} — fichiers complémentaires (non affichés) ===\n${others.join('\n')}\n`);
+  console.log(`=== ${slug} — prochains identifiants libres ===\n${nextIds(dir)}\n`);
 
   if (inGit) {
+    const ledgers = superpowersLedgers(root);
+    if (ledgers.length > 0) console.log(`=== registres superpowers en cours (non affichés) ===\n${ledgers.join('\n')}\n`);
     const status = git(['status', '--short', '--branch'], root);
     const log = git(['log', '--oneline', '-8'], root);
     console.log(`=== git ===\n${status}\n\n${log}`);

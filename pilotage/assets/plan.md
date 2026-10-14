@@ -18,16 +18,16 @@
 
 ## En vigueur
 
-<!-- Vue à jour de ce qui s'impose MAINTENANT. Chaque ligne renvoie à sa source (entrée du journal ou décision). -->
+<!-- Vue à jour de ce qui s'impose MAINTENANT. Une ligne par élément : identifiant (D1, C2…) et renvoi à sa source. -->
 
 ## Hypothèses à vérifier
 
-<!-- - [hypothèse] … → vérifier par : … · bloque : … -->
+<!-- - [hypothèse H1] … → vérifier par : … · bloque : … -->
 
 ## En attente de l'utilisateur
 
-<!-- - [question] … (à trancher)
-     - [attente] … (action à faire par l'utilisateur : accord, essai manuel, observation) -->
+<!-- - [question Q1] … (à trancher)
+     - [attente A1] … (action à faire par l'utilisateur : accord, essai manuel, observation) -->
 
 ## Reporté volontairement
 
