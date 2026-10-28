@@ -50,6 +50,19 @@ const projectRoot = () => {
 };
 
 /**
+ * Directory of an existing chantier. The slug must match SLUG_RE, so it can never point
+ * outside .pilotage/ (e.g. `../..`).
+ * @param {string} root - project root
+ * @param {string|undefined} slug - chantier slug
+ * @returns {string|null} chantier directory, or null when invalid or absent
+ */
+const chantierDir = (root, slug) => {
+  if (!slug || !SLUG_RE.test(slug)) return null;
+  const dir = path.join(root, DIR_NAME, slug);
+  return fs.existsSync(dir) ? dir : null;
+};
+
+/**
  * Parses `--key value` flags and positional arguments.
  * @param {string[]} argv - raw arguments
  * @returns {{flags: Object<string,string>, positional: string[]}} parsed arguments
@@ -151,8 +164,9 @@ const cmdDecision = ({ positional }) => {
   const [slug, ...words] = positional;
   const titre = words.join(' ');
   const { root } = projectRoot();
-  const dir = path.join(root, DIR_NAME, slug ?? '', 'decisions');
-  if (!slug || !titre || !fs.existsSync(dir)) {
+  const chantier = chantierDir(root, slug);
+  const dir = chantier && path.join(chantier, 'decisions');
+  if (!titre || !dir || !fs.existsSync(dir)) {
     console.error('Usage : decision <chantier-existant> <titre de la décision>');
     process.exit(1);
   }
@@ -311,8 +325,8 @@ const cmdReprise = ({ flags, positional }) => {
     console.log('(Préciser le chantier : reprise <slug>)');
     return;
   }
-  const dir = path.join(base, slug);
-  if (!fs.existsSync(dir)) {
+  const dir = chantierDir(root, slug);
+  if (!dir) {
     console.error(`ERREUR : chantier « ${slug} » introuvable dans ${base}.`);
     process.exit(1);
   }
@@ -501,8 +515,8 @@ const OPTIONAL_TEMPLATES = new Set(['essais', 'connaissances']);
 const cmdModele = ({ positional }) => {
   const [slug, name] = positional;
   const { root } = projectRoot();
-  const dir = path.join(root, DIR_NAME, slug ?? '');
-  if (!slug || !OPTIONAL_TEMPLATES.has(name) || !fs.existsSync(dir)) {
+  const dir = chantierDir(root, slug);
+  if (!dir || !OPTIONAL_TEMPLATES.has(name)) {
     console.error(`Usage : modele <chantier-existant> <${[...OPTIONAL_TEMPLATES].join('|')}>`);
     process.exit(1);
   }
