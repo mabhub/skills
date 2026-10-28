@@ -95,8 +95,10 @@ Pour un essai, `PILOTAGE_VEILLE_DELAI=120` et `PILOTAGE_VEILLE_SEUIL=0` donnent 
 - Le script lit dans le transcript les compteurs de tokens et la présence d'un marqueur
   du skill, **jamais** le contenu des messages. Le log ne contient que des décisions
   horodatées, sans extrait.
-- Le fichier pid vit dans `$XDG_RUNTIME_DIR`. Un pid n'est tué que si sa ligne de
-  commande contient `veille.mjs`, pour ne jamais toucher un processus étranger si le pid
-  a été réutilisé.
+- Le fichier pid vit dans `$XDG_RUNTIME_DIR` et son nom vient de l'identifiant de
+  session. Un identifiant hors `[A-Za-z0-9-]` est refusé : aucune veille n'est armée ni
+  désarmée, donc aucun fichier n'est écrit ou supprimé hors de ce dossier.
+- Un pid n'est tué que si sa ligne de commande contient `veille.mjs armer`, pour ne
+  jamais toucher un processus étranger si le pid a été réutilisé.
 - Le message de réveil vient d'un hook, pas de l'utilisateur. Il ne vaut que pour le
   point éclair borné qu'il décrit, et n'autorise aucune autre action.

@@ -37,6 +37,14 @@ const SKILL_MARKERS = ['<command-name>/pilotage</command-name>', '"skill":"pilot
 const pidFile = session => path.join(RUN_DIR, `pilotage-veille-${session}.pid`);
 
 /**
+ * Session id from the hook input, only if it is safe in a file name (Claude Code sends a UUID).
+ * Anything else (e.g. `../x`) could move the pid file out of RUN_DIR.
+ * @param {object} input - hook input
+ * @returns {string|null} session id
+ */
+const sessionOf = input => (/^[A-Za-z0-9-]{1,128}$/.test(input.session_id ?? '') ? input.session_id : null);
+
+/**
  * Nearest .pilotage/ folder, walking up from cwd.
  * @param {string} cwd - hook working directory
  * @returns {string|null} path of the .pilotage/ folder
@@ -124,7 +132,8 @@ const disarm = session => {
   } catch {
     return false;
   }
-  if (!cmdline.includes('veille.mjs')) return false;
+  // cmdline is NUL-separated: only an `armer` timer of this script may be killed.
+  if (!cmdline.includes('veille.mjs\0armer')) return false;
   try {
     process.kill(pid, 'SIGTERM');
   } catch {
@@ -147,7 +156,8 @@ const wakeMessage = slugs => [
  * @param {object} input - hook input
  */
 const armer = input => {
-  const session = input.session_id ?? 'inconnue';
+  const session = sessionOf(input);
+  if (!session) return; // no safe pid file name: never arm
   disarm(session);
   const dir = findPilotage(input.cwd ?? process.cwd());
   const log = logger(dir, session);
@@ -186,8 +196,8 @@ const armer = input => {
  * @param {object} input - hook input
  */
 const desarmer = input => {
-  const session = input.session_id ?? 'inconnue';
-  if (disarm(session)) logger(findPilotage(input.cwd ?? process.cwd()), session)("désarmé : réponse de l'utilisateur");
+  const session = sessionOf(input);
+  if (session && disarm(session)) logger(findPilotage(input.cwd ?? process.cwd()), session)("désarmé : réponse de l'utilisateur");
 };
 
 const COMMANDS = { armer, desarmer };
