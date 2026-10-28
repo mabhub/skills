@@ -19,9 +19,10 @@ reprise n'en a pas besoin.
 - `init` crée le dossier et ajoute `/.pilotage/` au fichier `info/exclude` du dépôt
   (via `git rev-parse --git-path`, donc correct aussi dans un worktree). Hors dépôt
   git, rien à exclure.
-- **Mémoire** : au premier `init` d'un projet, enregistrer une mémoire projet d'une
-  ligne qui pointe vers `.pilotage/INDEX.md` et `/pilotage reprise`. Rien d'autre :
-  la mémoire est rechargée à chaque session, son contenu se paie à chaque tour.
+- **Mémoire** : au premier `init` d'un projet, proposer à l'utilisateur une mémoire
+  projet d'une ligne qui pointe vers `.pilotage/INDEX.md` et `/pilotage reprise`, et ne
+  l'écrire qu'avec son accord. Rien d'autre : la mémoire est rechargée à chaque
+  session, son contenu se paie à chaque tour.
 
 ## Ouvrir un chantier
 
@@ -35,7 +36,7 @@ Pour une tâche de plusieurs étapes ou qui s'étalera sur plusieurs sessions :
    ou un plan détaillé, y renvoyer sans le recopier. Faire valider le macro-plan par
    l'utilisateur ; ses consignes vont en `[directive D1]`, `[directive D2]`…
 4. Ajouter la ligne du chantier dans `INDEX.md` (section « Actifs »).
-5. Si c'est le premier chantier du projet, créer le pointeur mémoire (voir plus haut).
+5. Si c'est le premier chantier du projet, proposer le pointeur mémoire (voir plus haut).
 
 Une tâche de deux ou trois tours n'a pas besoin de chantier. Le coût du suivi doit
 rester inférieur à ce qu'il fait gagner.

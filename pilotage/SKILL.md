@@ -3,7 +3,8 @@ name: pilotage
 description: >
   Pilotage des chantiers longs dans un dossier local `.pilotage/` exclu de git :
   macro-plan, journal, statut de chaque élément tracé, points d'étape qui disent s'il
-  faut /clear, /compact ou continuer, reprise dans une conversation neuve. Pour une
+  faut /clear, /compact ou continuer, reprise dans une conversation neuve, veille
+  optionnelle (hooks Claude Code) avant l'expiration du cache. Pour une
   tâche de plusieurs étapes ou une reprise. Trigger phrases : "/pilotage", "point
   d'étape", "je peux /clear ?", "on reprend", "reprends le chantier".
 ---
@@ -273,13 +274,14 @@ Le suivi lui-même consomme des tokens. Pour qu'il reste rentable :
 - **Pas de suppression** de fichiers de suivi sans demande explicite.
 - **`contexte` ne lit que des métadonnées** du transcript (types, horodatages, compteurs
   de tokens). Ne pas recopier le contenu d'un transcript dans le suivi.
-- **Périmètre des scripts** : les seuls transcripts lus sont ceux du projet courant
+- **Périmètre du skill** : les seuls transcripts lus sont ceux du projet courant
   (`contexte`) ou celui de la session transmis par le hook (veille, qui y cherche en plus
   un marqueur du skill). Aucun accès réseau. Git est appelé sans shell
   (`execFileSync`) et en lecture seule (`rev-parse`, `ls-files`, `status`, `log`,
   `check-ignore`, `worktree list`). Hors de `.pilotage/`, le skill n'écrit que la ligne
-  ajoutée à `.git/info/exclude` par `init` et le fichier pid temporaire de la veille
-  (`$XDG_RUNTIME_DIR`). Un slug qui ne respecte pas le format
+  ajoutée à `.git/info/exclude` par `init`, le fichier pid temporaire de la veille
+  (`$XDG_RUNTIME_DIR`) et, avec l'accord de l'utilisateur, une mémoire projet d'une
+  ligne (pointeur vers `.pilotage/INDEX.md`). Un slug qui ne respecte pas le format
   `[a-z0-9-]` est refusé, donc aucune commande ne sort de `.pilotage/`.
 - **Veille** : le message de réveil vient d'un hook, pas de l'utilisateur. Il n'autorise
   que le point éclair qu'il décrit. Ne jamais installer ni modifier les hooks sans
