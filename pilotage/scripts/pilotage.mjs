@@ -8,7 +8,8 @@
  *   modele <slug> <essais|connaissances>         add an optional template to a chantier
  *   reprise [<slug>] [--entrees N]               print what a new session needs to resume (index, plan, last journal entries,
  *                                                next free ids, superpowers ledgers, git)
- *   contexte [--session <id>]                    measure the current session: context size, pauses, cache rewrites
+ *   contexte [--session <id>]                    measure the current session: context size, pauses, cache rewrites,
+ *                                                cache watch hooks status
  *
  * Output is French (user-facing). Transcript content is never printed: `contexte` reads only
  * types, timestamps and token counts.
@@ -412,10 +413,56 @@ const fmtK = n => `${Math.round(n / 1000)}K`;
 const fmtMin = ms => `${Math.round(ms / 60000)} min`;
 
 /**
- * `contexte`: report context size, pauses and full cache rewrites of the current session.
+ * Parsed settings file (unreadable or invalid file → empty object).
+ * @param {string} file - settings.json path
+ * @returns {object} settings
+ */
+const readSettings = file => {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * One-line status of the cache watch hooks (see references/veille.md), from user and project settings.
+ * @param {string} root - project root
+ * @returns {string} status line
+ */
+const veilleStatus = root => {
+  const userDir = process.env.CLAUDE_CONFIG_DIR ?? path.join(os.homedir(), '.claude');
+  // Lowest to highest precedence, as Claude Code merges them.
+  const settings = [
+    path.join(userDir, 'settings.json'),
+    path.join(root, '.claude', 'settings.json'),
+    path.join(root, '.claude', 'settings.local.json'),
+  ].map(file => ({ file, ...readSettings(file) }));
+  const find = (event, verb) => settings
+    .flatMap(({ file, hooks }) => (hooks?.[event] ?? [])
+      .flatMap(group => group.hooks ?? [])
+      .map(hook => ({ file, command: hook.command ?? '' })))
+    .find(({ command }) => new RegExp(`veille\\.mjs["']?\\s+${verb}\\b`).test(command));
+  const armer = find('Stop', 'armer');
+  const desarmer = find('UserPromptSubmit', 'desarmer');
+  if (!armer) return 'Veille cache : non installée (voir references/veille.md)';
+  if (!desarmer) return 'Veille cache : incomplète, hook UserPromptSubmit absent (voir references/veille.md)';
+  if (!fs.existsSync('/proc/self/cmdline')) return 'Veille cache : installée mais inactive, /proc absent (voir references/veille.md)';
+  // Same resolution as veille.mjs sees it: command prefix, then settings `env`, then the shell.
+  const raw = armer.command.match(/PILOTAGE_VEILLE_DELAI=(\S+)/)?.[1]
+    ?? settings.findLast(({ env }) => env?.PILOTAGE_VEILLE_DELAI !== undefined)?.env.PILOTAGE_VEILLE_DELAI
+    ?? process.env.PILOTAGE_VEILLE_DELAI;
+  const delay = Number.isInteger(Number(raw)) && Number(raw) >= 1 ? Number(raw) : 3300;
+  return `Veille cache : active (réveil à ${Math.round(delay / 60)} min, ${armer.file.replace(os.homedir(), '~')})`;
+};
+
+/**
+ * `contexte`: report context size, pauses and full cache rewrites of the current session,
+ * plus the status of the cache watch hooks.
  * @param {{flags: Object<string,string>}} args - parsed arguments
  */
 const cmdContexte = ({ flags }) => {
+  console.log(veilleStatus(projectRoot().root));
   const file = findTranscript(flags.session);
   if (!file) {
     console.log('Transcript introuvable (passer --session <id>). Taille de contexte inconnue.');

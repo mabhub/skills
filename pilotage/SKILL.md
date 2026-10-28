@@ -103,7 +103,8 @@ Claude à un moment opportun (voir plus bas).
 1. **Mesurer** : `pilotage.mjs contexte` (ajouter `--session <id>` si l'identifiant de
    session est connu, par exemple le dernier segment du chemin du scratchpad ; sinon le
    script prend le transcript le plus récent du projet, ce qui peut se tromper si deux
-   sessions tournent dans le même dossier).
+   sessions tournent dans le même dossier). Sa première ligne donne l'état de la veille,
+   à recopier telle quelle dans la recommandation.
 2. **Auditer** ce qui s'est passé depuis le dernier point d'étape. Pour chaque catégorie,
    se demander si c'est tracé :
    - consignes données par l'utilisateur ;
@@ -148,10 +149,14 @@ Claude à un moment opportun (voir plus bas).
    ```
    Point d'étape — <chantier>
    Contexte : 182K · pause avant ce message : 3 min · suivi : journal +1 entrée, plan à jour
+   Veille cache : non installée (voir references/veille.md)
    Recommandation : /clear
    Pourquoi : l'étape 2 est validée (tests verts), l'étape 3 ne dépend que du suivi.
-   Pour reprendre : /pilotage reprise <chantier>
+   Pour reprendre : /clear, puis /pilotage reprise <chantier>
    ```
+
+   La ligne « Veille cache » sert à décider avant une absence : sans veille, un départ
+   non annoncé laisse le suivi en l'état au moment où le cache expire.
 
    Pour `/compact`, fournir les consignes prêtes à coller
    (`/compact garde <…>, oublie <…>`). Pour « continuer », dire quand refaire le point
