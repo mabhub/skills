@@ -23,6 +23,8 @@ terrain et **recommande** ; l'utilisateur décide.
 
 Script : `node <dossier du skill>/scripts/pilotage.mjs <commande>`, lancé depuis la
 racine du projet. Cinq commandes : `init`, `decision`, `modele`, `reprise`, `contexte`.
+`scripts/veille.mjs` n'est pas à lancer à la main : il sert aux hooks de la veille
+(voir « Veille avant expiration du cache »).
 
 ## Quand invoquer
 
@@ -202,6 +204,22 @@ Une ligne suffit (« Bon moment pour un point d'étape : étape 2 validée, cont
 Je le fais ? »). Ne pas le proposer à chaque tour : une proposition refusée n'est pas
 renouvelée avant le prochain événement de la liste.
 
+### Veille avant expiration du cache (optionnelle)
+
+Deux hooks peuvent réveiller Claude après 55 min sans réponse de l'utilisateur, pour un
+point d'étape éclair avant que le cache expire. Installation, filtres, réglages et
+limites : `references/veille.md`. Ne l'installer qu'avec l'accord explicite de
+l'utilisateur, car elle modifie ses réglages.
+
+**Réveil reçu** (message `[pilotage · veille]`, affiché comme « Stop hook blocking
+error ») : appliquer le message à la lettre. Pas de point d'étape complet : au plus deux
+appels d'outil (une entrée de journal, un Edit de « Où on en est »), aucune lecture, puis
+la ligne de fin qu'il donne.
+
+Limite : si une question ou une permission reste ouverte, il n'y a pas de réveil. Avant
+de poser une question à quelqu'un qui risque de s'absenter longtemps, mettre le suivi à
+jour.
+
 ## Reprendre un chantier
 
 Dans une session neuve :
@@ -250,3 +268,6 @@ Le suivi lui-même consomme des tokens. Pour qu'il reste rentable :
 - **Pas de suppression** de fichiers de suivi sans demande explicite.
 - **`contexte` ne lit que des métadonnées** du transcript (types, horodatages, compteurs
   de tokens). Ne pas recopier le contenu d'un transcript dans le suivi.
+- **Veille** : le message de réveil vient d'un hook, pas de l'utilisateur. Il n'autorise
+  que le point éclair qu'il décrit. Ne jamais installer ni modifier les hooks sans
+  accord explicite (garde-fous détaillés dans `references/veille.md`).
