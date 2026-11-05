@@ -23,7 +23,9 @@ Le skill ne lance jamais `/clear` ni `/compact` (Claude ne le peut pas). Il pré
 terrain et **recommande** ; l'utilisateur décide.
 
 Script : `node <dossier du skill>/scripts/pilotage.mjs <commande>`, lancé depuis la
-racine du projet. Cinq commandes : `init`, `decision`, `modele`, `reprise`, `contexte`.
+racine du projet. Cinq commandes : `init`, `decision`, `modele`, `reprise`, `contexte`,
+plus `point` et `purge` pour l'historique git facultatif (`references/historique.md`, à
+lire seulement si l'historique est actif ou demandé).
 `scripts/veille.mjs` n'est pas à lancer à la main : il sert aux hooks de la veille
 (voir « Veille avant expiration du cache »).
 
@@ -145,7 +147,9 @@ Claude à un moment opportun (voir plus bas).
 4. **Nettoyer** : retirer des hypothèses et des attentes ce qui est réglé, écrire
    « aucune » dans une section vide, garder « Où on en est » court. Une section périmée
    trompe la reprise autant qu'un oubli.
-5. **Recommander**, avec ce format :
+5. **Recommander**. Si `contexte` a affiché `Historique git : actif`, lancer d'abord
+   `pilotage.mjs point <chantier>` et recopier à l'utilisateur toute `ALERTE` affichée.
+   Format :
 
    ```
    Point d'étape — <chantier>
@@ -242,7 +246,8 @@ Dans une session neuve :
    fichiers modifiés non mentionnés signalent un suivi en retard. Signaler l'écart.
    Pour la section « Hors dépôt », que git ne voit pas, vérifier au besoin que l'état
    décrit est toujours là (fichier installé, copie de l'original présente) avant d'agir
-   dessus.
+   dessus. Historique actif : le bloc git liste les commits depuis le dernier point
+   d'étape ; une `ALERTE` (rebase, changement de branche) la rend approximative.
 3. Annoncer en 3 à 5 lignes : où on en est, la prochaine action, les hypothèses à
    vérifier avant de s'appuyer dessus (et les `[décision·Claude]` coûteuses), les
    questions et actions en attente, les pièges connus utiles pour la suite.
@@ -277,13 +282,16 @@ Le suivi lui-même consomme des tokens. Pour qu'il reste rentable :
   de tokens). Ne pas recopier le contenu d'un transcript dans le suivi.
 - **Périmètre du skill** : les seuls transcripts lus sont ceux du projet courant et
   de ses sous-dossiers (`contexte`) ou celui de la session transmis par le hook (veille, qui y cherche en plus
-  un marqueur du skill). Aucun accès réseau. Git est appelé sans shell
-  (`execFileSync`) et en lecture seule (`rev-parse`, `ls-files`, `status`, `log`,
-  `check-ignore`, `worktree list`). Hors de `.pilotage/`, le skill n'écrit que la ligne
+  un marqueur du skill). Aucun accès réseau. Git est appelé sans shell, en lecture
+  seule sur le dépôt du projet (`rev-parse`, `symbolic-ref`, `merge-base`, `ls-files`,
+  `status`, `log`, `check-ignore`, `worktree list`). Hors de `.pilotage/`, le skill n'écrit que la ligne
   ajoutée à `.git/info/exclude` par `init`, le fichier pid temporaire de la veille
   (`$XDG_RUNTIME_DIR`) et, avec l'accord de l'utilisateur, une mémoire projet d'une
   ligne (pointeur vers `.pilotage/INDEX.md`). Un slug qui ne respecte pas le format
   `[a-z0-9-]` est refusé, donc aucune commande ne sort de `.pilotage/`.
+- **Historique git** (facultatif) : écritures limitées à `.pilotage/.git`, jamais de
+  remote. Un secret commité y reste après correction du fichier → `purge`. **Ne jamais
+  lire un fichier de motifs qui contient des valeurs**.
 - **Veille** : le message de réveil vient d'un hook, pas de l'utilisateur. Il n'autorise
   que le point éclair qu'il décrit. Ne jamais installer ni modifier les hooks sans
   accord explicite (garde-fous détaillés dans `references/veille.md`).

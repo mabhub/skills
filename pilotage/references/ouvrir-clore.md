@@ -23,6 +23,13 @@ reprise n'en a pas besoin.
   projet d'une ligne qui pointe vers `.pilotage/INDEX.md` et `/pilotage reprise`, et ne
   l'écrire qu'avec son accord. Rien d'autre : la mémoire est rechargée à chaque
   session, son contenu se paie à chaque tour.
+- **Historique git** : au premier `init`, proposer l'historique facultatif
+  (`init --git`, voir `references/historique.md`) **seulement si** `init` a affiché
+  `Historique git possible : …`, en une ligne, sans insister. Ne pas le reproposer à
+  l'ouverture d'autres chantiers ni à la reprise, sauf chantier qui en bénéficierait
+  fortement : prévu sur plusieurs semaines, `connaissances.md` réécrit souvent, ou
+  projet où `git clean -fdx` est courant. Dans ce cas, une fois par chantier, et
+  seulement si git est disponible.
 
 ## Ouvrir un chantier
 
