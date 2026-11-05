@@ -12,6 +12,9 @@
  *                                                next free ids, superpowers ledgers, git)
  *   contexte [--session <id>]                    measure the current session: context size, pauses, cache rewrites,
  *                                                cache watch hooks status
+ *   point <slug>                                 history on: commit .pilotage/ at the end of a checkpoint
+ *
+ * History on (.pilotage/.git): `contexte` and `reprise` first commit pending changes (catch-up).
  *
  * Output is French (user-facing). Transcript content is never printed: `contexte` reads only
  * types, timestamps and token counts.
@@ -21,7 +24,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { HistoryError, gitAvailable, historyActive, initHistory } from './historique.mjs';
+import {
+  HistoryError, catchUp, commitPoint, gitAvailable, historyActive, initHistory,
+} from './historique.mjs';
 
 const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ASSETS = path.join(SKILL_DIR, 'assets');
@@ -363,6 +368,7 @@ const missingReferences = (planText, { root, dir }) => {
 const cmdReprise = ({ flags, positional }) => {
   const { root, inGit } = projectRoot();
   const base = path.join(root, DIR_NAME);
+  if (historyActive(base)) catchUp({ base, command: 'reprise' }).forEach(line => console.log(line));
   const index = path.join(base, 'INDEX.md');
   if (!fs.existsSync(index)) {
     console.log(`Aucun ${DIR_NAME}/INDEX.md dans ${root} → rien à reprendre.`);
@@ -545,7 +551,10 @@ const cmdContexte = ({ flags }) => {
     console.error(`ERREUR : identifiant de session invalide « ${flags.session} » (lettres, chiffres, tirets).`);
     process.exit(1);
   }
-  console.log(veilleStatus(projectRoot().root));
+  const { root } = projectRoot();
+  console.log(veilleStatus(root));
+  const base = path.join(root, DIR_NAME);
+  if (historyActive(base)) catchUp({ base, command: 'contexte' }).forEach(line => console.log(line));
   const file = findTranscript(flags.session);
   if (!file) {
     console.log('Transcript introuvable (passer --session <id>). Taille de contexte inconnue.');
@@ -594,18 +603,34 @@ const cmdModele = ({ positional }) => {
   console.log(`${file} ${written ? 'créé' : 'existant (non modifié)'}`);
 };
 
+/**
+ * `point`: commit .pilotage/ at the end of a checkpoint (history on only).
+ * @param {{positional: string[]}} args - parsed arguments
+ */
+const cmdPoint = ({ positional }) => {
+  const [slug] = positional;
+  const { root, inGit } = projectRoot();
+  if (!chantierDir(root, slug)) {
+    console.error('Usage : point <chantier-existant>');
+    process.exit(1);
+  }
+  const base = path.join(root, DIR_NAME);
+  withHistoryErrors(() => commitPoint({ base, root, inGit, slug }).forEach(line => console.log(line)));
+};
+
 const COMMANDS = {
   modele: cmdModele,
   init: cmdInit,
   decision: cmdDecision,
   reprise: cmdReprise,
   contexte: cmdContexte,
+  point: cmdPoint,
 };
 
 const [command, ...rest] = process.argv.slice(2);
 const handler = COMMANDS[command];
 if (!handler) {
-  console.error('Usage : pilotage.mjs <init|decision|modele|reprise|contexte> [options]');
+  console.error('Usage : pilotage.mjs <init|decision|modele|reprise|contexte|point> [options]');
   process.exit(1);
 }
 handler(parseArgs(rest));

@@ -131,3 +131,90 @@ export const initHistory = ({ base, root, inGit }) => {
   const count = runGit(['ls-files'], { base }).stdout.split('\n').filter(Boolean).length;
   return [`Historique git activé : ${count} fichier(s) commité(s) · ${sha}`];
 };
+
+const firstLine = text => text.split('\n')[0];
+
+/**
+ * Formats line ranges as `12-14, 20`.
+ * @param {Array<[number, number]>} ranges - [first, last] pairs
+ * @returns {string} formatted ranges
+ */
+const formatRanges = ranges => ranges.map(([from, to]) => (from === to ? `${from}` : `${from}-${to}`)).join(', ');
+
+/**
+ * Alerts for journals that lost lines since the last commit (append-only rule). Only the hunk
+ * headers of the diff are parsed: the removed lines may hold a secret and are never printed.
+ * @param {string} base - .pilotage folder (history on)
+ * @returns {string[]} one alert per shrunk journal, deleted ones included
+ */
+export const journalAlerts = base => runGit(['-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames', 'HEAD'], { base }).stdout
+  .split('\n')
+  .filter(file => /^[^/]+\/journal\.md$/.test(file))
+  .flatMap(file => {
+    const ranges = runGit(['diff', '-U0', '--no-ext-diff', '--no-textconv', '--no-color', 'HEAD', '--', file], { base }).stdout
+      .split('\n')
+      .map(line => line.match(/^@@ -(\d+)(?:,(\d+))? \+/))
+      .filter(Boolean)
+      .map(([, start, count = '1']) => [Number(start), Number(count)])
+      .filter(([, count]) => count > 0)
+      .map(([start, count]) => [start, start + count - 1]);
+    const lost = ranges.reduce((sum, [from, to]) => sum + to - from + 1, 0);
+    return lost > 0
+      ? [`ALERTE : ${file} a perdu ${lost} ligne(s) (version précédente : lignes ${formatRanges(ranges)})`]
+      : [];
+  });
+
+/**
+ * Checks that a commit can be made; throws otherwise.
+ * @param {string} base - .pilotage folder
+ * @throws {HistoryError} history off, git unavailable or identity missing
+ */
+const assertCanCommit = base => {
+  if (!historyActive(base)) throw new HistoryError('ERREUR : historique git non activé (init --git).');
+  if (!gitAvailable()) throw new HistoryError('ERREUR : git indisponible, historique impossible.');
+  const problem = identityProblem(base);
+  if (problem) throw new HistoryError(problem);
+};
+
+/**
+ * `point <slug>`: commits the whole .pilotage folder at the end of a checkpoint, linked to the
+ * project's state. Commits even without changes, so the link records the current HEAD.
+ * @param {{base: string, root: string, inGit: boolean, slug: string}} context - .pilotage folder, project root, git flag, chantier
+ * @returns {string[]} lines to print
+ * @throws {HistoryError} history off, git unavailable, identity missing or commit failure
+ */
+export const commitPoint = ({ base, root, inGit, slug }) => {
+  assertCanCommit(base);
+  const alerts = journalAlerts(base);
+  const sha = commitAll(base, `Point d'étape · ${slug}`, [`Chantier: ${slug}`, ...projectTrailers(root, inGit)]);
+  return [`Historique : point d'étape commité (${slug}) · ${sha}`, ...alerts];
+};
+
+/**
+ * Catch-up at the start of `contexte` and `reprise`: commits pending changes, without trailers.
+ * Never throws: resuming and measuring must not be blocked by the history.
+ * @param {{base: string, command: string}} context - .pilotage folder (history on), calling command
+ * @returns {string[]} status line, then journal alerts
+ */
+export const catchUp = ({ base, command }) => {
+  const failed = reason => [`Historique git : actif · rattrapage impossible (${reason}), suivi non commité`];
+  try {
+    if (!gitAvailable()) return failed('git indisponible');
+    const status = runGit(['status', '--porcelain'], { base });
+    if (!status.ok) return failed(`git status a échoué : ${firstLine(status.stderr)}`);
+    if (status.stdout === '') return ['Historique git : actif'];
+    if (identityProblem(base)) return failed('identité git absente');
+    const alerts = journalAlerts(base);
+    const add = runGit(['add', '-A'], { base });
+    if (!add.ok) return failed(`git add a échoué : ${firstLine(add.stderr)}`);
+    const dirs = [...new Set(runGit(['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames'], { base }).stdout
+      .split('\n')
+      .filter(file => file.includes('/'))
+      .map(file => file.split('/')[0]))].toSorted();
+    const touched = dirs.length > 0 ? dirs.join(', ') : 'racine';
+    commitAll(base, `Rattrapage (${command}) · ${touched}`, []);
+    return [`Historique git : actif · rattrapage commité (${touched})`, ...alerts];
+  } catch (error) {
+    return failed(error instanceof HistoryError ? error.message.replace(/^ERREUR : |\.$/g, '') : 'erreur inattendue');
+  }
+};

@@ -149,3 +149,137 @@ test('git clean -fdx in the project keeps .pilotage', t => {
   assert.ok(fs.existsSync(path.join(s.pilotage, 'INDEX.md')));
   assert.ok(fs.existsSync(path.join(s.pilotage, 'demo', 'plan.md')));
 });
+
+/**
+ * Sandbox with history on and one chantier `demo`.
+ * @param {import('node:test').TestContext} t - test context
+ * @returns {object} sandbox helpers
+ */
+const activeSandbox = t => {
+  const s = sandbox(t);
+  const init = s.run(['init', '--git', '--chantier', 'demo']);
+  assert.equal(init.status, 0, init.stderr);
+  return s;
+};
+const commitCount = s => Number(s.miniGit('rev-list', '--count', 'HEAD'));
+const touch = (s, file, text = '\nmodifié\n') => fs.appendFileSync(path.join(s.pilotage, file), text);
+
+test('point commits with chantier trailer', t => {
+  const s = activeSandbox(t);
+  const res = s.run(['point', 'demo']);
+  assert.equal(res.status, 0, res.stderr);
+  const sha = s.miniGit('rev-parse', '--short=7', 'HEAD');
+  assert.ok(res.stdout.includes(`Historique : point d'étape commité (demo) · ${sha}`), res.stdout);
+  assert.equal(s.miniGit('log', '-1', '--format=%s'), "Point d'étape · demo");
+  assert.equal(trailer(s, 'Chantier'), 'demo');
+  assert.equal(trailer(s, 'Projet-HEAD'), s.git('rev-parse', 'HEAD'));
+});
+
+test('point without changes makes an empty commit', t => {
+  const s = activeSandbox(t);
+  assert.equal(s.run(['point', 'demo']).status, 0);
+  assert.equal(s.run(['point', 'demo']).status, 0);
+  assert.equal(commitCount(s), 3);
+});
+
+test('point refuses outside history mode and leaves the project repo alone', t => {
+  const s = sandbox(t);
+  assert.equal(s.run(['init', '--chantier', 'demo']).status, 0);
+  const before = s.git('rev-list', '--count', 'HEAD');
+  const res = s.run(['point', 'demo']);
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /historique git non activé \(init --git\)/);
+  assert.equal(s.git('rev-list', '--count', 'HEAD'), before);
+  assert.ok(!fs.existsSync(path.join(s.pilotage, '.git')));
+});
+
+test('point needs an existing chantier', t => {
+  const s = activeSandbox(t);
+  for (const args of [['point'], ['point', 'absent'], ['point', '../..']]) {
+    const res = s.run(args);
+    assert.equal(res.status, 1, args.join(' '));
+    assert.match(res.stderr, /Usage : point/);
+  }
+  assert.equal(commitCount(s), 1);
+});
+
+test('point fails without identity', t => {
+  const s = activeSandbox(t);
+  fs.writeFileSync(s.gitconfig, '');
+  const res = s.run(['point', 'demo']);
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /identité git absente/);
+  assert.equal(commitCount(s), 1);
+});
+
+test('contexte catches up pending changes', t => {
+  const s = activeSandbox(t);
+  touch(s, 'demo/plan.md');
+  const res = s.run(['contexte']);
+  assert.equal(res.status, 0, res.stderr);
+  const lines = res.stdout.split('\n');
+  assert.match(lines[0], /^Veille cache/);
+  assert.equal(lines[1], 'Historique git : actif · rattrapage commité (demo)');
+  assert.equal(s.miniGit('log', '-1', '--format=%s'), 'Rattrapage (contexte) · demo');
+  assert.equal(trailer(s, 'Chantier'), '');
+  const clean = s.run(['contexte']);
+  assert.equal(clean.stdout.split('\n')[1], 'Historique git : actif');
+  touch(s, 'INDEX.md');
+  assert.equal(s.run(['contexte']).stdout.split('\n')[1], 'Historique git : actif · rattrapage commité (racine)');
+});
+
+test('catch-up without identity warns and continues', t => {
+  const s = activeSandbox(t);
+  touch(s, 'demo/plan.md');
+  fs.writeFileSync(s.gitconfig, '');
+  const res = s.run(['reprise', 'demo']);
+  assert.equal(res.status, 0, res.stderr);
+  assert.ok(res.stdout.includes('Historique git : actif · rattrapage impossible (identité git absente), suivi non commité'), res.stdout);
+  assert.ok(res.stdout.includes('=== demo/plan.md ==='), res.stdout);
+  assert.equal(commitCount(s), 1);
+});
+
+test('catch-up without git warns and continues', t => {
+  const s = activeSandbox(t);
+  touch(s, 'demo/plan.md');
+  const res = s.run(['reprise', 'demo'], s.noGitPath());
+  assert.equal(res.status, 0, res.stderr);
+  assert.ok(res.stdout.includes('rattrapage impossible (git indisponible)'), res.stdout);
+  assert.ok(res.stdout.includes('=== demo/plan.md ==='), res.stdout);
+});
+
+test('journal shrink raises an alert without content', t => {
+  const s = activeSandbox(t);
+  const journal = path.join(s.pilotage, 'demo', 'journal.md');
+  const original = fs.readFileSync(journal, 'utf8');
+  fs.writeFileSync(journal, `${original}\n- [directive] SECRET-TEST-123\n`);
+  assert.equal(s.run(['point', 'demo']).status, 0);
+  fs.writeFileSync(journal, `${original}\n`);
+  const before = commitCount(s);
+  const res = s.run(['point', 'demo']);
+  assert.equal(res.status, 0, res.stderr);
+  assert.match(res.stdout, /ALERTE : demo\/journal\.md a perdu 1 ligne\(s\) \(version précédente : lignes \d+\)/);
+  assert.ok(!res.stdout.includes('SECRET-TEST-123'));
+  assert.ok(!res.stderr.includes('SECRET-TEST-123'));
+  assert.equal(commitCount(s), before + 1);
+});
+
+test('deleted journal raises an alert', t => {
+  const s = activeSandbox(t);
+  const journal = path.join(s.pilotage, 'demo', 'journal.md');
+  const lines = fs.readFileSync(journal, 'utf8').split('\n').length - 1;
+  fs.rmSync(journal);
+  const res = s.run(['point', 'demo']);
+  assert.equal(res.status, 0, res.stderr);
+  assert.ok(res.stdout.includes(`ALERTE : demo/journal.md a perdu ${lines} ligne(s) (version précédente : lignes 1-${lines})`), res.stdout);
+});
+
+test('standard mode output is unchanged', t => {
+  const s = sandbox(t);
+  assert.equal(s.run(['init', '--chantier', 'demo']).status, 0);
+  for (const args of [['contexte'], ['reprise', 'demo']]) {
+    const res = s.run(args);
+    assert.equal(res.status, 0, res.stderr);
+    assert.ok(!res.stdout.includes('Historique'), res.stdout);
+  }
+});
