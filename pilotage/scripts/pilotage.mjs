@@ -25,7 +25,7 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
-  HistoryError, catchUp, commitPoint, gitAvailable, historyActive, initHistory,
+  HistoryError, catchUp, commitPoint, gitAvailable, historyActive, initHistory, projectLink,
 } from './historique.mjs';
 
 const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -422,7 +422,8 @@ const cmdReprise = ({ flags, positional }) => {
     const ledgers = superpowersLedgers(root);
     if (ledgers.length > 0) console.log(`=== registres superpowers en cours (non affichés) ===\n${ledgers.join('\n')}\n`);
     const status = git(['status', '--short', '--branch'], root);
-    const log = git(['log', '--oneline', '-8'], root);
+    const link = projectLink({ base, root, inGit, slug });
+    const log = link ? link.join('\n') : git(['log', '--oneline', '-8'], root);
     console.log(`=== git ===\n${status}\n\n${log}`);
   }
 };

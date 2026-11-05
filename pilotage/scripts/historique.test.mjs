@@ -59,7 +59,7 @@ const sandbox = (t, { identity = true, commit = true } = {}) => {
   };
   git('init', '-q', '-b', 'main');
   if (commit) git('commit', '-q', '--allow-empty', '-m', 'initial');
-  return { tmp, gitconfig, project, pilotage, git, miniGit, run, noGitPath };
+  return { tmp, gitconfig, project, pilotage, setupEnv, git, miniGit, run, noGitPath };
 };
 
 const trailer = (s, key) => s.miniGit('log', '-1', `--format=%(trailers:key=${key},valueonly)`);
@@ -282,4 +282,106 @@ test('standard mode output is unchanged', t => {
     assert.equal(res.status, 0, res.stderr);
     assert.ok(!res.stdout.includes('Historique'), res.stdout);
   }
+});
+
+const LINK_HEADER = /=== git — commits depuis le dernier point d'étape \((\d{4}-\d{2}-\d{2} \d{2}:\d{2}), ([0-9a-f]{7})\) ===/;
+const REBASE_ALERT = 'ALERTE : le HEAD du dernier point d\'étape';
+const projectCommit = (s, subject) => s.git('commit', '-q', '--allow-empty', '-m', subject);
+/** Lines listed under the link header (empty when there is none). */
+const linkLines = stdout => {
+  const lines = stdout.split('\n');
+  const start = lines.findIndex(line => LINK_HEADER.test(line));
+  return start === -1 ? [] : lines.slice(start + 1);
+};
+
+test('reprise lists project commits since the last point', t => {
+  const s = activeSandbox(t);
+  const pointHead = s.git('rev-parse', 'HEAD');
+  assert.equal(s.run(['point', 'demo']).status, 0);
+  projectCommit(s, 'premier ajout');
+  projectCommit(s, 'second ajout');
+  const res = s.run(['reprise', 'demo']);
+  assert.equal(res.status, 0, res.stderr);
+  const header = res.stdout.match(LINK_HEADER);
+  assert.ok(header, res.stdout);
+  assert.equal(header[2], pointHead.slice(0, 7));
+  assert.ok(res.stdout.includes('=== git ===\n## main'), res.stdout);
+  assert.ok(res.stdout.indexOf('=== git ===') < header.index, 'status before the list');
+  const listed = linkLines(res.stdout);
+  assert.ok(listed.some(line => line.endsWith(' second ajout')), listed.join('\n'));
+  assert.ok(listed.some(line => line.endsWith(' premier ajout')), listed.join('\n'));
+  assert.ok(!listed.some(line => line.endsWith(' initial')), listed.join('\n'));
+  assert.ok(!res.stdout.includes(REBASE_ALERT), res.stdout);
+});
+
+test('reprise flags a rebase', t => {
+  const s = activeSandbox(t);
+  const pointHead = s.git('rev-parse', 'HEAD');
+  assert.equal(s.run(['point', 'demo']).status, 0);
+  const later = new Date(Date.now() + 60_000).toISOString();
+  execFileSync('git', ['commit', '-q', '--amend', '--allow-empty', '-m', 'autre'], {
+    cwd: s.project, env: { ...s.setupEnv, GIT_COMMITTER_DATE: later }, encoding: 'utf8',
+  });
+  const res = s.run(['reprise', 'demo']);
+  assert.equal(res.status, 0, res.stderr);
+  assert.ok(res.stdout.includes(`ALERTE : le HEAD du dernier point d'étape (${pointHead.slice(0, 7)}, branche main) n'est plus dans l'historique de main (rebase, reset ou changement de branche) : liste approximative, par date.`), res.stdout);
+  assert.ok(linkLines(res.stdout).some(line => line.endsWith(' autre')), res.stdout);
+});
+
+test('two chantiers on two branches do not raise alerts', t => {
+  const s = sandbox(t);
+  assert.equal(s.run(['init', '--git', '--chantier', 'a']).status, 0);
+  assert.equal(s.run(['init', '--chantier', 'b']).status, 0);
+  s.git('switch', '-q', '-c', 'a');
+  projectCommit(s, 'travail a');
+  assert.equal(s.run(['point', 'a']).status, 0);
+  s.git('switch', '-q', '-c', 'b');
+  projectCommit(s, 'travail b');
+  assert.equal(s.run(['point', 'b']).status, 0);
+  s.git('switch', '-q', 'a');
+  const res = s.run(['reprise', 'a']);
+  assert.equal(res.status, 0, res.stderr);
+  assert.ok(LINK_HEADER.test(res.stdout), res.stdout);
+  assert.ok(!res.stdout.includes(REBASE_ALERT), res.stdout);
+  assert.ok(res.stdout.includes('(aucun commit)'), res.stdout);
+});
+
+test('reprise falls back to the initial commit link', t => {
+  const s = activeSandbox(t);
+  const initHead = s.git('rev-parse', 'HEAD');
+  projectCommit(s, 'après activation');
+  const res = s.run(['reprise', 'demo']);
+  assert.equal(res.status, 0, res.stderr);
+  assert.equal(res.stdout.match(LINK_HEADER)?.[2], initHead.slice(0, 7), res.stdout);
+  assert.ok(linkLines(res.stdout).some(line => line.endsWith(' après activation')), res.stdout);
+});
+
+test('reprise caps the list at 30 commits', t => {
+  const s = activeSandbox(t);
+  for (let i = 1; i <= 32; i += 1) projectCommit(s, `commit ${i}`);
+  const res = s.run(['reprise', 'demo']);
+  assert.equal(res.status, 0, res.stderr);
+  const listed = linkLines(res.stdout).filter(Boolean);
+  assert.equal(listed.length, 31, listed.join('\n'));
+  assert.equal(listed.at(-1), '… +2 autres');
+});
+
+test('reprise keeps git log -8 without a link', t => {
+  const s = sandbox(t);
+  assert.equal(s.run(['init', '--chantier', 'demo']).status, 0);
+  const res = s.run(['reprise', 'demo']);
+  assert.equal(res.status, 0, res.stderr);
+  assert.ok(!LINK_HEADER.test(res.stdout), res.stdout);
+  assert.match(res.stdout, /=== git ===\n## main\n\n[0-9a-f]{7,} initial$/m);
+});
+
+test('unborn project HEAD keeps the standard display', t => {
+  const s = sandbox(t, { commit: false });
+  assert.equal(s.run(['init', '--git', '--chantier', 'demo']).status, 0);
+  assert.equal(s.run(['point', 'demo']).status, 0);
+  assert.equal(trailer(s, 'Projet-HEAD'), '');
+  const res = s.run(['reprise', 'demo']);
+  assert.equal(res.status, 0, res.stderr);
+  assert.ok(res.stdout.includes('=== git ==='), res.stdout);
+  assert.ok(!LINK_HEADER.test(res.stdout), res.stdout);
 });

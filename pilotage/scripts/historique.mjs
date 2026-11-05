@@ -218,3 +218,46 @@ export const catchUp = ({ base, command }) => {
     return failed(error instanceof HistoryError ? error.message.replace(/^ERREUR : |\.$/g, '') : 'erreur inattendue');
   }
 };
+
+const LINK_MAX = 30;
+// One record per commit, opened by \x1e; fields separated by \x00.
+const LINK_FORMAT = `%x1e${['%H', '%cI', ...['Chantier', 'Projet-HEAD', 'Projet-branche']
+  .map(key => `%(trailers:key=${key},valueonly,separator=%x2C)`)].join('%x00')}`;
+
+/**
+ * Commit of the nested repository that links a chantier to the project: its last `point`,
+ * else the most recent link without `Chantier` (the initial commit, valid for all chantiers).
+ * @param {string} base - .pilotage folder (history on)
+ * @param {string} slug - chantier
+ * @returns {{date: string, sha: string, branch: string}|null} linked state, or null
+ */
+const lastLink = (base, slug) => {
+  const records = runGit(['log', `--format=${LINK_FORMAT}`], { base }).stdout
+    .split('\x1e')
+    .map(record => record.split('\0').map(field => field.trim()))
+    .filter(([, , , sha]) => /^[0-9a-f]{40,64}$/.test(sha ?? ''))
+    .map(([, date, chantier, sha, branch]) => ({ date, chantier, sha, branch }));
+  return records.find(record => record.chantier === slug) ?? records.find(record => record.chantier === '') ?? null;
+};
+
+/**
+ * Project commits since the chantier's last checkpoint, with an alert when the noted HEAD left
+ * the current history (rebase, reset, other branch). The project repository is only read.
+ * @param {{base: string, root: string, inGit: boolean, slug: string}} context - .pilotage folder, project root, git flag, chantier
+ * @returns {string[]|null} lines replacing `git log -8`, or null when no link is usable
+ */
+export const projectLink = ({ base, root, inGit, slug }) => {
+  if (!inGit || !historyActive(base) || !gitAvailable()) return null;
+  const link = lastLink(base, slug);
+  const head = projectHead(root, inGit);
+  if (!link || !head) return null;
+  const short = link.sha.slice(0, 7);
+  const header = `=== git — commits depuis le dernier point d'étape (${link.date.slice(0, 16).replace('T', ' ')}, ${short}) ===`;
+  const exact = runGit(['merge-base', '--is-ancestor', link.sha, 'HEAD'], { cwd: root }).status === 0;
+  const alert = exact ? [] : [`ALERTE : le HEAD du dernier point d'étape (${short}, branche ${link.branch}) n'est plus dans l'historique de ${head.branch} (rebase, reset ou changement de branche) : liste approximative, par date.`];
+  const range = exact ? [`${link.sha}..HEAD`] : [`--since=${link.date}`, 'HEAD'];
+  const commits = runGit(['log', '--oneline', '--no-decorate', ...range], { cwd: root }).stdout.split('\n').filter(Boolean);
+  const listed = commits.length === 0 ? ['(aucun commit)'] : commits.slice(0, LINK_MAX);
+  const more = commits.length > LINK_MAX ? [`… +${commits.length - LINK_MAX} autres`] : [];
+  return [header, ...alert, ...listed, ...more];
+};
