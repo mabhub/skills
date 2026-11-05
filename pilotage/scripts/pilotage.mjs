@@ -3,7 +3,9 @@
  * pilotage — deterministic helpers for the `pilotage` skill.
  *
  * Subcommands:
- *   init [--chantier <slug>] [--titre <titre>]   create .pilotage/ (git-excluded) and optionally a chantier
+ *   init [--chantier <slug>] [--titre <titre>] [--git]
+ *                                                create .pilotage/ (git-excluded), optionally a chantier and,
+ *                                                with --git, the optional history (.pilotage/.git, see historique.mjs)
  *   decision <slug> <titre...>                   create the next numbered decision file
  *   modele <slug> <essais|connaissances>         add an optional template to a chantier
  *   reprise [<slug>] [--entrees N]               print what a new session needs to resume (index, plan, last journal entries,
@@ -19,6 +21,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { HistoryError, gitAvailable, historyActive, initHistory } from './historique.mjs';
 
 const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ASSETS = path.join(SKILL_DIR, 'assets');
@@ -64,13 +67,17 @@ const chantierDir = (root, slug) => {
 };
 
 /**
- * Parses `--key value` flags and positional arguments.
+ * Parses `--key value` flags, value-less boolean flags and positional arguments.
  * @param {string[]} argv - raw arguments
+ * @param {Set<string>} [booleans] - flags that take no value (they are set to 'true')
  * @returns {{flags: Object<string,string>, positional: string[]}} parsed arguments
  */
-const parseArgs = argv => argv.reduce(
+const parseArgs = (argv, booleans = new Set(['git'])) => argv.reduce(
   (acc, arg, i, all) => {
     if (acc.skip) return { ...acc, skip: false };
+    if (arg.startsWith('--') && booleans.has(arg.slice(2))) {
+      return { ...acc, flags: { ...acc.flags, [arg.slice(2)]: 'true' } };
+    }
     if (arg.startsWith('--')) {
       return { ...acc, flags: { ...acc.flags, [arg.slice(2)]: all[i + 1] ?? '' }, skip: true };
     }
@@ -128,7 +135,22 @@ const ensureExcluded = root => {
 };
 
 /**
- * `init`: create .pilotage/, its INDEX.md, and optionally a chantier skeleton.
+ * Runs a history action; a HistoryError is printed on stderr and ends the command with code 1.
+ * @param {Function} action - action to run
+ * @returns {*} the action's result
+ */
+const withHistoryErrors = action => {
+  try {
+    return action();
+  } catch (error) {
+    if (!(error instanceof HistoryError)) throw error;
+    console.error(error.message);
+    process.exit(1);
+  }
+};
+
+/**
+ * `init`: create .pilotage/, its INDEX.md, optionally a chantier skeleton and the git history.
  * @param {{flags: Object<string,string>}} args - parsed arguments
  */
 const cmdInit = ({ flags }) => {
@@ -143,18 +165,26 @@ const cmdInit = ({ flags }) => {
   console.log(`${base}/INDEX.md ${indexWritten ? 'créé' : 'existant'}`);
 
   const slug = flags.chantier;
-  if (!slug) return;
-  if (!SLUG_RE.test(slug)) {
-    console.error(`ERREUR : slug invalide « ${slug} » (minuscules, chiffres, tirets).`);
-    process.exit(1);
+  if (slug) {
+    if (!SLUG_RE.test(slug)) {
+      console.error(`ERREUR : slug invalide « ${slug} » (minuscules, chiffres, tirets).`);
+      process.exit(1);
+    }
+    const dir = path.join(base, slug);
+    fs.mkdirSync(path.join(dir, 'decisions'), { recursive: true });
+    const values = { TITRE: flags.titre || slug, DATE: today() };
+    ['plan.md', 'journal.md', 'connaissances.md'].forEach(out => {
+      const written = writeIfAbsent(path.join(dir, out), render(out, values));
+      console.log(`${dir}/${out} ${written ? 'créé' : 'existant (non modifié)'}`);
+    });
   }
-  const dir = path.join(base, slug);
-  fs.mkdirSync(path.join(dir, 'decisions'), { recursive: true });
-  const values = { TITRE: flags.titre || slug, DATE: today() };
-  ['plan.md', 'journal.md', 'connaissances.md'].forEach(out => {
-    const written = writeIfAbsent(path.join(dir, out), render(out, values));
-    console.log(`${dir}/${out} ${written ? 'créé' : 'existant (non modifié)'}`);
-  });
+
+  if (flags.git) {
+    withHistoryErrors(() => initHistory({ base, root, inGit }).forEach(line => console.log(line)));
+  } else if (indexWritten && !historyActive(base) && gitAvailable()) {
+    // The only trace of the history mode in the standard flow: one line, once per project.
+    console.log('Historique git possible : init --git (voir references/historique.md)');
+  }
 };
 
 /**
