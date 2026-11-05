@@ -25,6 +25,7 @@ const ASSETS = path.join(SKILL_DIR, 'assets');
 const DIR_NAME = '.pilotage';
 const EXCLUDE_LINE = `/${DIR_NAME}/`;
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
+const SESSION_RE = /^[A-Za-z0-9-]{1,128}$/;
 
 /**
  * Runs a git command and returns trimmed stdout, or null outside a repository / on failure.
@@ -175,8 +176,9 @@ const cmdDecision = ({ positional }) => {
     .filter(Number.isFinite)
     .reduce((max, n) => Math.max(max, n), 0) + 1;
   const num = String(next).padStart(3, '0');
+  // A title without any ASCII letter or digit (e.g. only emoji) would leave an empty slug.
   const fileSlug = titre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'decision';
   const file = path.join(dir, `${num}-${fileSlug}.md`);
   fs.writeFileSync(file, render('decision.md', { NUM: num, TITRE: titre, DATE: today() }));
   console.log(file);
@@ -237,23 +239,40 @@ const ID_PREFIXES = { directive: 'D', 'décision·utilisateur': 'C', 'décision�
 const ID_DEFINITION_RE = new RegExp(`\\[(${Object.keys(ID_PREFIXES).join('|')}) ([A-Z])(\\d+)\\]`, 'g');
 
 /**
- * Computes the next free short id per prefix (D, C, H, Q, A) from the ids defined in a chantier's
- * base files. Only definition sites (`[hypothèse H3]`) count, so bare references cannot inflate them.
+ * Id definition sites (`[hypothèse H3]`) of a chantier's base files. Template guidance comments are
+ * stripped first: their examples (`[question Q1]`…) are not real ids.
  * @param {string} dir - chantier directory
+ * @returns {Array<{site: string, status: string, prefix: string, num: number}>} definitions
+ */
+const idDefinitions = dir => ['plan.md', 'journal.md', 'connaissances.md']
+  .map(name => path.join(dir, name))
+  .filter(file => fs.existsSync(file))
+  .flatMap(file => [...stripComments(fs.readFileSync(file, 'utf8')).matchAll(ID_DEFINITION_RE)])
+  .map(([site, status, prefix, num]) => ({ site, status, prefix, num: Number(num) }));
+
+/**
+ * Computes the next free short id per prefix (D, C, H, Q, A). Only definition sites count, so bare
+ * references cannot inflate them. A definition with the wrong prefix still counts for its prefix,
+ * so that its id is never handed out again.
+ * @param {Array<{prefix: string, num: number}>} definitions - id definitions
  * @returns {string} e.g. "D4 · C2 · H5 · Q1 · A1"
  */
-const nextIds = dir => {
-  const text = ['plan.md', 'journal.md', 'connaissances.md']
-    .map(name => path.join(dir, name))
-    .filter(file => fs.existsSync(file))
-    .map(file => fs.readFileSync(file, 'utf8'))
-    .join('\n');
-  const max = [...text.matchAll(ID_DEFINITION_RE)].reduce(
-    (acc, [, , prefix, num]) => ({ ...acc, [prefix]: Math.max(acc[prefix] ?? 0, Number(num)) }),
+const nextIds = definitions => {
+  const max = definitions.reduce(
+    (acc, { prefix, num }) => ({ ...acc, [prefix]: Math.max(acc[prefix] ?? 0, num) }),
     {},
   );
   return [...new Set(Object.values(ID_PREFIXES))].map(prefix => `${prefix}${(max[prefix] ?? 0) + 1}`).join(' · ');
 };
+
+/**
+ * Definitions whose prefix does not match their status (e.g. `[hypothèse D9]`).
+ * @param {Array<{site: string, status: string, prefix: string}>} definitions - id definitions
+ * @returns {string[]} offending definition sites
+ */
+const misprefixedIds = definitions => definitions
+  .filter(({ status, prefix }) => ID_PREFIXES[status] !== prefix)
+  .map(({ site }) => site);
 
 /**
  * Summarizes the superpowers plan ledgers (`.superpowers/sdd/<plan>/progress.md`) found in the
@@ -349,7 +368,8 @@ const cmdReprise = ({ flags, positional }) => {
 
   const journal = path.join(dir, 'journal.md');
   if (fs.existsSync(journal)) {
-    const count = Number.parseInt(flags.entrees ?? '3', 10);
+    const requested = Number(flags.entrees ?? 3);
+    const count = Number.isInteger(requested) && requested >= 1 ? requested : 3;
     const { shown, total } = lastEntries(fs.readFileSync(journal, 'utf8'), count);
     console.log(`=== ${slug}/journal.md — ${Math.min(count, total)} dernière(s) entrée(s) sur ${total} ===\n${shown}\n`);
   }
@@ -357,7 +377,10 @@ const cmdReprise = ({ flags, positional }) => {
   if (decisions.length > 0) console.log(`=== ${slug}/decisions ===\n${decisions.join('\n')}\n`);
   const others = extraFiles(dir);
   if (others.length > 0) console.log(`=== ${slug} — fichiers complémentaires (non affichés) ===\n${others.join('\n')}\n`);
-  console.log(`=== ${slug} — prochains identifiants libres ===\n${nextIds(dir)}\n`);
+  const definitions = idDefinitions(dir);
+  console.log(`=== ${slug} — prochains identifiants libres ===\n${nextIds(definitions)}\n`);
+  const misprefixed = misprefixedIds(definitions);
+  if (misprefixed.length > 0) console.log(`ALERTE : identifiants au préfixe incohérent avec leur statut (D directive, C décision, H hypothèse, Q question, A attente) :\n${misprefixed.map(site => `- ${site}`).join('\n')}\n`);
 
   if (inGit) {
     const ledgers = superpowersLedgers(root);
@@ -376,22 +399,27 @@ const cmdReprise = ({ flags, positional }) => {
 const projectSlug = dir => dir.replace(/[^a-zA-Z0-9]/g, '-');
 
 /**
- * Locates the transcript of the current session.
+ * Locates the transcript of the current session. Claude Code files transcripts under the folder the
+ * session started in, which may be a subfolder of the project root: the root, the cwd and every
+ * project folder below the root are searched.
  * @param {string|undefined} sessionId - explicit session id
  * @returns {string|null} transcript path
  */
 const findTranscript = sessionId => {
-  const projectDir = path.join(os.homedir(), '.claude', 'projects', projectSlug(process.cwd()));
-  if (!fs.existsSync(projectDir)) return null;
+  const projectsDir = path.join(process.env.CLAUDE_CONFIG_DIR ?? path.join(os.homedir(), '.claude'), 'projects');
+  if (!fs.existsSync(projectsDir)) return null;
+  const rootSlug = projectSlug(projectRoot().root);
+  const projectDirs = fs.readdirSync(projectsDir)
+    .filter(name => name === projectSlug(process.cwd()) || name === rootSlug || name.startsWith(`${rootSlug}-`))
+    .map(name => path.join(projectsDir, name));
   if (sessionId) {
-    const file = path.join(projectDir, `${sessionId}.jsonl`);
-    return fs.existsSync(file) ? file : null;
+    return projectDirs.map(dir => path.join(dir, `${sessionId}.jsonl`)).find(file => fs.existsSync(file)) ?? null;
   }
-  const latest = fs.readdirSync(projectDir)
-    .filter(name => name.endsWith('.jsonl'))
-    .map(name => ({ name, mtime: fs.statSync(path.join(projectDir, name)).mtimeMs }))
-    .toSorted((a, b) => b.mtime - a.mtime)[0];
-  return latest ? path.join(projectDir, latest.name) : null;
+  // The current session's transcript is the one being written right now.
+  return projectDirs
+    .flatMap(dir => fs.readdirSync(dir).filter(name => name.endsWith('.jsonl')).map(name => path.join(dir, name)))
+    .map(file => ({ file, mtime: fs.statSync(file).mtimeMs }))
+    .toSorted((a, b) => b.mtime - a.mtime)[0]?.file ?? null;
 };
 
 /**
@@ -399,29 +427,35 @@ const findTranscript = sessionId => {
  * @param {string} file - transcript path
  * @returns {{turns: Array<{ts: number, context: number, written: number}>, prompts: number[]}} parsed data
  */
-const parseTranscript = file => fs.readFileSync(file, 'utf8')
-  .split('\n')
-  .filter(Boolean)
-  .reduce((acc, line) => {
-    let entry;
-    try {
-      entry = JSON.parse(line);
-    } catch {
-      return acc;
-    }
-    if (entry.isSidechain || !entry.timestamp) return acc;
-    const ts = Date.parse(entry.timestamp);
-    const usage = entry.type === 'assistant' ? entry.message?.usage : null;
-    if (usage) {
+const parseTranscript = file => {
+  const entries = fs.readFileSync(file, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map(line => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(entry => entry && !entry.isSidechain && entry.timestamp);
+  // Claude Code writes one line per content block of an API response, each repeating the same usage:
+  // one turn per message id (position of its first line, timestamp of its last one).
+  const turns = [...new Map(entries
+    .filter(entry => entry.type === 'assistant' && entry.message?.usage)
+    .map((entry, i) => {
+      const { usage } = entry.message;
       const written = usage.cache_creation_input_tokens ?? 0;
       const context = (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + written;
-      return { ...acc, turns: [...acc.turns, { ts, context, written }] };
-    }
-    const content = entry.type === 'user' && !entry.isMeta ? entry.message?.content : null;
-    const isPrompt = typeof content === 'string'
-      || (Array.isArray(content) && content.some(part => part.type === 'text'));
-    return isPrompt ? { ...acc, prompts: [...acc.prompts, ts] } : acc;
-  }, { turns: [], prompts: [] });
+      return [entry.message.id ?? `#${i}`, { ts: Date.parse(entry.timestamp), context, written }];
+    })).values()];
+  const prompts = entries
+    .filter(entry => entry.type === 'user' && !entry.isMeta)
+    .filter(({ message }) => typeof message?.content === 'string'
+      || (Array.isArray(message?.content) && message.content.some(part => part.type === 'text')))
+    .map(entry => Date.parse(entry.timestamp));
+  return { turns, prompts };
+};
 
 const fmtK = n => `${Math.round(n / 1000)}K`;
 const fmtMin = ms => `${Math.round(ms / 60000)} min`;
@@ -476,6 +510,11 @@ const veilleStatus = root => {
  * @param {{flags: Object<string,string>}} args - parsed arguments
  */
 const cmdContexte = ({ flags }) => {
+  // Same rule as veille.mjs: the id becomes a file name, so `../x` must not leave the projects folder.
+  if (flags.session !== undefined && !SESSION_RE.test(flags.session)) {
+    console.error(`ERREUR : identifiant de session invalide « ${flags.session} » (lettres, chiffres, tirets).`);
+    process.exit(1);
+  }
   console.log(veilleStatus(projectRoot().root));
   const file = findTranscript(flags.session);
   if (!file) {

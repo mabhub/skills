@@ -170,7 +170,7 @@ const armer = input => {
     // Without /proc, disarm cannot check a pid: timers would pile up, one per turn.
     [!fs.existsSync('/proc/self/cmdline'), '/proc absent : désarmement impossible'],
     [input.stop_hook_active, 'relance par un hook Stop'],
-    [/\/pilotage reprise/.test(input.last_assistant_message ?? ''), 'reprise déjà proposée (D2)'],
+    [/\/pilotage reprise/.test(input.last_assistant_message ?? ''), 'reprise déjà proposée'],
     [(input.session_crons?.length ?? 0) + (input.background_tasks?.length ?? 0) > 0, 'réveil déjà prévu (cron ou tâche de fond)'],
     [!SKILL_MARKERS.some(marker => raw.includes(marker)), 'skill pilotage non chargé dans la session'],
     [ttl === '5m', 'cache de 5 min : le réveil réécrirait tout le contexte'],

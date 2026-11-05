@@ -235,8 +235,9 @@ Dans une session neuve :
    les titres de `connaissances.md`, la liste des fichiers complémentaires (nom et
    taille, sans leur contenu), les prochains identifiants libres, les registres
    superpowers en cours (dépôt et worktrees), `git status` et les derniers commits. Il
-   signale aussi un `.pilotage/` qui ne serait plus exclu de git et les chemins cités
-   dans « Repères » devenus introuvables. Sans slug, il affiche l'index pour choisir.
+   signale aussi un `.pilotage/` qui ne serait plus exclu de git, les chemins cités
+   dans « Repères » devenus introuvables et les identifiants dont le préfixe ne
+   correspond pas au statut (`[hypothèse D9]`). Sans slug, il affiche l'index pour choisir.
 2. **Confronter le suivi au dépôt** : une étape notée faite doit se voir dans git ; des
    fichiers modifiés non mentionnés signalent un suivi en retard. Signaler l'écart.
    Pour la section « Hors dépôt », que git ne voit pas, vérifier au besoin que l'état
@@ -274,8 +275,8 @@ Le suivi lui-même consomme des tokens. Pour qu'il reste rentable :
 - **Pas de suppression** de fichiers de suivi sans demande explicite.
 - **`contexte` ne lit que des métadonnées** du transcript (types, horodatages, compteurs
   de tokens). Ne pas recopier le contenu d'un transcript dans le suivi.
-- **Périmètre du skill** : les seuls transcripts lus sont ceux du projet courant
-  (`contexte`) ou celui de la session transmis par le hook (veille, qui y cherche en plus
+- **Périmètre du skill** : les seuls transcripts lus sont ceux du projet courant et
+  de ses sous-dossiers (`contexte`) ou celui de la session transmis par le hook (veille, qui y cherche en plus
   un marqueur du skill). Aucun accès réseau. Git est appelé sans shell
   (`execFileSync`) et en lecture seule (`rev-parse`, `ls-files`, `status`, `log`,
   `check-ignore`, `worktree list`). Hors de `.pilotage/`, le skill n'écrit que la ligne
