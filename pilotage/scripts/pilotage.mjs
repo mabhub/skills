@@ -13,6 +13,7 @@
  *   contexte [--session <id>]                    measure the current session: context size, pauses, cache rewrites,
  *                                                cache watch hooks status
  *   point <slug>                                 history on: commit .pilotage/ at the end of a checkpoint
+ *   purge --motifs <fichier>                     history on: replace the patterns (secrets) in the whole history
  *
  * History on (.pilotage/.git): `contexte` and `reprise` first commit pending changes (catch-up).
  *
@@ -25,7 +26,7 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
-  HistoryError, catchUp, commitPoint, gitAvailable, historyActive, initHistory, projectLink,
+  HistoryError, catchUp, commitPoint, gitAvailable, historyActive, initHistory, projectLink, purgeHistory,
 } from './historique.mjs';
 
 const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -619,6 +620,20 @@ const cmdPoint = ({ positional }) => {
   withHistoryErrors(() => commitPoint({ base, root, inGit, slug }).forEach(line => console.log(line)));
 };
 
+/**
+ * `purge --motifs <file>`: removes secrets from the whole history of .pilotage/.
+ * @param {{flags: Object<string,string>}} args - parsed arguments
+ */
+const cmdPurge = ({ flags }) => {
+  const { root } = projectRoot();
+  const base = path.join(root, DIR_NAME);
+  if (historyActive(base) && !flags.motifs) {
+    console.error('Usage : purge --motifs <fichier>');
+    process.exit(1);
+  }
+  withHistoryErrors(() => purgeHistory({ base, patternsFile: flags.motifs }).forEach(line => console.log(line)));
+};
+
 const COMMANDS = {
   modele: cmdModele,
   init: cmdInit,
@@ -626,12 +641,13 @@ const COMMANDS = {
   reprise: cmdReprise,
   contexte: cmdContexte,
   point: cmdPoint,
+  purge: cmdPurge,
 };
 
 const [command, ...rest] = process.argv.slice(2);
 const handler = COMMANDS[command];
 if (!handler) {
-  console.error('Usage : pilotage.mjs <init|decision|modele|reprise|contexte|point> [options]');
+  console.error('Usage : pilotage.mjs <init|decision|modele|reprise|contexte|point|purge> [options]');
   process.exit(1);
 }
 handler(parseArgs(rest));

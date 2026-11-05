@@ -385,3 +385,104 @@ test('unborn project HEAD keeps the standard display', t => {
   assert.ok(res.stdout.includes('=== git ==='), res.stdout);
   assert.ok(!LINK_HEADER.test(res.stdout), res.stdout);
 });
+
+const SECRET = 'SECRET-XYZ-987';
+/** Ids of mini-repository objects whose content holds the needle. */
+const objectsWith = (s, needle) => s.miniGit('cat-file', '--batch-all-objects', '--batch-check=%(objectname)')
+  .split('\n')
+  .filter(id => execFileSync('git', ['--git-dir', path.join(s.pilotage, '.git'), 'cat-file', '-p', id], { encoding: 'latin1' }).includes(needle));
+/** Puts the secret in the history, then removes it from the current files. */
+const leakSecret = s => {
+  const journal = path.join(s.pilotage, 'demo', 'journal.md');
+  const original = fs.readFileSync(journal, 'utf8');
+  fs.writeFileSync(journal, `${original}\n- [constat] jeton ${SECRET}\n`);
+  assert.equal(s.run(['point', 'demo']).status, 0);
+  fs.writeFileSync(journal, original);
+  assert.equal(s.run(['point', 'demo']).status, 0);
+  assert.ok(objectsWith(s, SECRET).length > 0, 'secret in history before the purge');
+};
+const patternsFile = (s, text) => {
+  const file = path.join(s.tmp, 'motifs.txt');
+  fs.writeFileSync(file, text);
+  return file;
+};
+
+test('purge removes a literal secret from all history', t => {
+  const s = activeSandbox(t);
+  leakSecret(s);
+  const before = commitCount(s);
+  const file = patternsFile(s, `${SECRET}\n`);
+  const res = s.run(['purge', '--motifs', file]);
+  assert.equal(res.status, 0, res.stderr);
+  assert.match(res.stdout, /Purge : \d+ objet\(s\) contenaient un motif · \d+ commit\(s\) réécrit\(s\) · vérification OK · fichier de motifs supprimé/);
+  assert.deepEqual(objectsWith(s, SECRET), []);
+  assert.equal(commitCount(s), before);
+  assert.ok(!fs.existsSync(file));
+  assert.ok(!res.stdout.includes(SECRET) && !res.stderr.includes(SECRET));
+  assert.equal(s.miniGit('for-each-ref', 'refs/original/'), '');
+  assert.equal(s.miniGit('status', '--porcelain'), '');
+});
+
+test('purge works with a regex pattern', t => {
+  const s = activeSandbox(t);
+  leakSecret(s);
+  const res = s.run(['purge', '--motifs', patternsFile(s, 'regex:SECRET-[A-Z]+-[0-9]+\n')]);
+  assert.equal(res.status, 0, res.stderr);
+  assert.match(res.stdout, /vérification OK/);
+  assert.deepEqual(objectsWith(s, SECRET), []);
+});
+
+test('purge refuses while the secret is still in current files', t => {
+  const s = activeSandbox(t);
+  touch(s, 'demo/plan.md', `\n${SECRET}\n`);
+  assert.equal(s.run(['point', 'demo']).status, 0);
+  const head = s.miniGit('rev-parse', 'HEAD');
+  const file = patternsFile(s, `${SECRET}\n`);
+  const res = s.run(['purge', '--motifs', file]);
+  assert.equal(res.status, 1);
+  assert.ok(res.stderr.includes('ERREUR : un motif est encore présent dans 1 fichier(s) actuel(s) : le retirer d\'abord.'), res.stderr);
+  assert.ok(!res.stderr.includes(SECRET) && !res.stdout.includes(SECRET));
+  assert.equal(s.miniGit('rev-parse', 'HEAD'), head);
+  assert.ok(fs.existsSync(file));
+});
+
+test('purge refuses a patterns file inside .pilotage', t => {
+  const s = activeSandbox(t);
+  const file = path.join(s.pilotage, 'motifs.txt');
+  fs.writeFileSync(file, 'rien-de-tel\n');
+  const head = s.miniGit('rev-parse', 'HEAD');
+  const res = s.run(['purge', '--motifs', file]);
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /hors de \.pilotage/);
+  assert.equal(s.miniGit('rev-parse', 'HEAD'), head);
+});
+
+test('purge refuses an invalid patterns file', t => {
+  const s = activeSandbox(t);
+  const res = s.run(['purge', '--motifs', patternsFile(s, 'regex:(\n')]);
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /ERREUR : motif refusé ligne 1 : /);
+});
+
+test('purge with nothing to purge', t => {
+  const s = activeSandbox(t);
+  const head = s.miniGit('rev-parse', 'HEAD');
+  const file = patternsFile(s, 'absent-partout\n');
+  const res = s.run(['purge', '--motifs', file]);
+  assert.equal(res.status, 0, res.stderr);
+  assert.ok(res.stdout.includes('Purge : aucun motif trouvé dans l\'historique, rien à réécrire.'), res.stdout);
+  assert.equal(s.miniGit('rev-parse', 'HEAD'), head);
+  assert.ok(!fs.existsSync(file));
+});
+
+test('purge needs the history mode and a patterns file', t => {
+  const s = sandbox(t);
+  assert.equal(s.run(['init', '--chantier', 'demo']).status, 0);
+  const off = s.run(['purge', '--motifs', patternsFile(s, 'x\n')]);
+  assert.equal(off.status, 1);
+  assert.match(off.stderr, /historique git non activé/);
+  assert.equal(s.run(['init', '--git']).status, 0);
+  const missing = s.run(['purge']);
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /Usage : purge --motifs <fichier>/);
+});

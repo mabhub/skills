@@ -8,6 +8,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { containsAny, decodeFile, parsePatterns } from './motifs.mjs';
 
 /** Error with a French, user-facing message; the caller prints it and exits with code 1. */
 export class HistoryError extends Error {}
@@ -260,4 +262,132 @@ export const projectLink = ({ base, root, inGit, slug }) => {
   const listed = commits.length === 0 ? ['(aucun commit)'] : commits.slice(0, LINK_MAX);
   const more = commits.length > LINK_MAX ? [`… +${commits.length - LINK_MAX} autres`] : [];
   return [header, ...alert, ...listed, ...more];
+};
+
+const FILTER_SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'purge-filtre.mjs');
+
+/**
+ * @param {string} dir - folder to walk
+ * @param {string[]} [skip] - entry names skipped at this level
+ * @returns {string[]} regular files below it (symbolic links are not followed)
+ */
+const filesBelow = (dir, skip = []) => fs.readdirSync(dir, { withFileTypes: true })
+  .filter(entry => !skip.includes(entry.name))
+  .flatMap(entry => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return filesBelow(full);
+    return entry.isFile() ? [full] : [];
+  });
+
+/**
+ * Counts the blobs and commits of the nested repository, unreachable ones included, whose
+ * content matches a pattern. Contents are only tested, never returned.
+ * @param {string} base - .pilotage folder (history on)
+ * @param {RegExp[]} patterns - purge patterns
+ * @returns {number} matching objects
+ * @throws {HistoryError} when the objects cannot be read
+ */
+const objectsWithPattern = (base, patterns) => {
+  const ids = runGit(['cat-file', '--batch-all-objects', '--batch-check=%(objectname) %(objecttype)'], { base }).stdout
+    .split('\n')
+    .map(line => line.split(' '))
+    .filter(([, type]) => type === 'blob' || type === 'commit')
+    .map(([id]) => id);
+  if (ids.length === 0) return 0;
+  const res = spawnSync('git', ['--git-dir', path.join(base, '.git'), 'cat-file', '--batch'], {
+    input: `${ids.join('\n')}\n`, maxBuffer: 1024 ** 3, stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  if (res.status !== 0) throw new HistoryError('ERREUR : lecture des objets du mini-dépôt impossible.');
+  const out = res.stdout;
+  let count = 0;
+  // Output: `<id> <type> <size>\n<content>\n` per object.
+  for (let pos = 0; pos < out.length;) {
+    const eol = out.indexOf(0x0a, pos);
+    const size = Number(out.subarray(pos, eol).toString('utf8').split(' ')[2]);
+    if (containsAny(decodeFile(out.subarray(eol + 1, eol + 1 + size)).text, patterns)) count += 1;
+    pos = eol + 1 + size + 1;
+  }
+  return count;
+};
+
+/**
+ * Reads and checks the patterns file: it must exist outside .pilotage/ (it would be committed).
+ * @param {string} base - .pilotage folder
+ * @param {string} patternsFile - path given by the user
+ * @returns {{file: string, patterns: RegExp[]}} resolved path and patterns
+ * @throws {HistoryError} missing file, file inside .pilotage, refused pattern
+ */
+const readPatterns = (base, patternsFile) => {
+  if (!patternsFile || !fs.existsSync(patternsFile)) throw new HistoryError('ERREUR : fichier de motifs introuvable.');
+  const file = fs.realpathSync(patternsFile);
+  const realBase = fs.realpathSync(base);
+  if (file === realBase || file.startsWith(`${realBase}${path.sep}`)) {
+    throw new HistoryError('ERREUR : le fichier de motifs doit être hors de .pilotage/ (il y serait commité).');
+  }
+  try {
+    return { file, patterns: parsePatterns(fs.readFileSync(file, 'utf8')) };
+  } catch (error) {
+    throw new HistoryError(`ERREUR : ${error.message}.`);
+  }
+};
+
+/**
+ * Runs a git command on the nested repository and throws on failure.
+ * @param {string} base - .pilotage folder
+ * @param {string[]} args - git arguments
+ * @param {object} [env] - environment
+ * @returns {string} stdout
+ * @throws {HistoryError} on failure (first line of stderr)
+ */
+const mustGit = (base, args, env) => {
+  const res = runGit(args, { base, env });
+  if (!res.ok) throw new HistoryError(`ERREUR : git ${args[0]} a échoué (${firstLine(res.stderr)}).`);
+  return res.stdout;
+};
+
+/**
+ * `purge --motifs <file>`: rewrites the whole history of .pilotage/ to replace every match of
+ * the patterns, then checks that no object still holds one. Only counts are printed.
+ * @param {{base: string, patternsFile: string}} context - .pilotage folder, patterns file
+ * @returns {string[]} lines to print
+ * @throws {HistoryError} on any refusal or failure (the patterns file is then kept)
+ */
+export const purgeHistory = ({ base, patternsFile }) => {
+  assertCanCommit(base);
+  const { file, patterns } = readPatterns(base, patternsFile);
+  const current = filesBelow(base, ['.git'])
+    .filter(name => containsAny(decodeFile(fs.readFileSync(name)).text, patterns)).length;
+  if (current > 0) {
+    throw new HistoryError(`ERREUR : un motif est encore présent dans ${current} fichier(s) actuel(s) : le retirer d'abord.`);
+  }
+  const caughtUp = catchUp({ base, command: 'purge' });
+  if (runGit(['status', '--porcelain'], { base }).stdout !== '') {
+    throw new HistoryError('ERREUR : suivi non commité, purge impossible.');
+  }
+  const found = objectsWithPattern(base, patterns);
+  if (found === 0) {
+    fs.rmSync(file);
+    return [...caughtUp, "Purge : aucun motif trouvé dans l'historique, rien à réécrire."];
+  }
+  const commits = () => mustGit(base, ['rev-list', '--all']).split('\n');
+  const before = commits();
+  mustGit(base, ['filter-branch', '-f', '--tree-filter', '"$PILOTAGE_NODE" "$PILOTAGE_PURGE_FILTRE"', '--', '--all'], {
+    ...process.env,
+    FILTER_BRANCH_SQUELCH_WARNING: '1',
+    PILOTAGE_NODE: process.execPath,
+    PILOTAGE_PURGE_FILTRE: FILTER_SCRIPT,
+    PILOTAGE_MOTIFS: file,
+  });
+  mustGit(base, ['for-each-ref', '--format=%(refname)', 'refs/original/']).split('\n').filter(Boolean)
+    .forEach(ref => mustGit(base, ['update-ref', '-d', ref]));
+  mustGit(base, ['reflog', 'expire', '--expire=now', '--all']);
+  mustGit(base, ['gc', '--prune=now', '--aggressive', '-q']);
+  const left = objectsWithPattern(base, patterns);
+  if (left > 0) {
+    throw new HistoryError(`ERREUR : vérification échouée, ${left} objet(s) contiennent encore un motif. Fichier de motifs conservé.`);
+  }
+  const after = new Set(commits());
+  const rewritten = before.filter(id => !after.has(id)).length;
+  fs.rmSync(file);
+  return [...caughtUp, `Purge : ${found} objet(s) contenaient un motif · ${rewritten} commit(s) réécrit(s) · vérification OK · fichier de motifs supprimé`];
 };
