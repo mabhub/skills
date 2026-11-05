@@ -128,7 +128,8 @@ export const initHistory = ({ base, root, inGit }) => {
   if (problem) throw new HistoryError(problem);
   const init = runGit(['init', '-q', base], { cwd: base });
   if (!init.ok) throw new HistoryError(`ERREUR : git init a échoué (${init.stderr.split('\n')[0]}).`);
-  fs.appendFileSync(path.join(base, '.git', 'info', 'exclude'), '\n/veille.log\n');
+  // .git-rewrite: filter-branch's temporary checkout (purge); a leftover may hold a secret.
+  fs.appendFileSync(path.join(base, '.git', 'info', 'exclude'), '\n/veille.log\n/.git-rewrite/\n');
   const sha = commitAll(base, 'État initial', projectTrailers(root, inGit));
   const count = runGit(['ls-files'], { base }).stdout.split('\n').filter(Boolean).length;
   return [`Historique git activé : ${count} fichier(s) commité(s) · ${sha}`];
@@ -284,7 +285,7 @@ const filesBelow = (dir, skip = []) => fs.readdirSync(dir, { withFileTypes: true
  * content matches a pattern. Contents are only tested, never returned.
  * @param {string} base - .pilotage folder (history on)
  * @param {RegExp[]} patterns - purge patterns
- * @returns {number} matching objects
+ * @returns {{blob: number, commit: number}} matching objects by type
  * @throws {HistoryError} when the objects cannot be read
  */
 const objectsWithPattern = (base, patterns) => {
@@ -293,19 +294,19 @@ const objectsWithPattern = (base, patterns) => {
     .map(line => line.split(' '))
     .filter(([, type]) => type === 'blob' || type === 'commit')
     .map(([id]) => id);
-  if (ids.length === 0) return 0;
+  const count = { blob: 0, commit: 0 };
+  if (ids.length === 0) return count;
   const res = spawnSync('git', ['--git-dir', path.join(base, '.git'), 'cat-file', '--batch'], {
     input: `${ids.join('\n')}\n`, maxBuffer: 1024 ** 3, stdio: ['pipe', 'pipe', 'pipe'],
   });
   if (res.status !== 0) throw new HistoryError('ERREUR : lecture des objets du mini-dépôt impossible.');
   const out = res.stdout;
-  let count = 0;
   // Output: `<id> <type> <size>\n<content>\n` per object.
   for (let pos = 0; pos < out.length;) {
     const eol = out.indexOf(0x0a, pos);
-    const size = Number(out.subarray(pos, eol).toString('utf8').split(' ')[2]);
-    if (containsAny(decodeFile(out.subarray(eol + 1, eol + 1 + size)).text, patterns)) count += 1;
-    pos = eol + 1 + size + 1;
+    const [, type, size] = out.subarray(pos, eol).toString('utf8').split(' ');
+    if (containsAny(decodeFile(out.subarray(eol + 1, eol + 1 + Number(size))).text, patterns)) count[type] += 1;
+    pos = eol + 1 + Number(size) + 1;
   }
   return count;
 };
@@ -364,7 +365,11 @@ export const purgeHistory = ({ base, patternsFile }) => {
   if (runGit(['status', '--porcelain'], { base }).stdout !== '') {
     throw new HistoryError('ERREUR : suivi non commité, purge impossible.');
   }
-  const found = objectsWithPattern(base, patterns);
+  // Commit objects hold identities, shas and trailers, which the tree filter cannot rewrite.
+  const { blob: found, commit: inCommits } = objectsWithPattern(base, patterns);
+  if (inCommits > 0) {
+    throw new HistoryError(`ERREUR : le motif correspond aussi à ${inCommits} commit(s) du mini-dépôt (auteur, e-mail, sha ou branche), que la purge ne réécrit pas : préciser le motif. Fichier de motifs conservé.`);
+  }
   if (found === 0) {
     fs.rmSync(file);
     return [...caughtUp, "Purge : aucun motif trouvé dans l'historique, rien à réécrire."];
@@ -382,7 +387,7 @@ export const purgeHistory = ({ base, patternsFile }) => {
     .forEach(ref => mustGit(base, ['update-ref', '-d', ref]));
   mustGit(base, ['reflog', 'expire', '--expire=now', '--all']);
   mustGit(base, ['gc', '--prune=now', '--aggressive', '-q']);
-  const left = objectsWithPattern(base, patterns);
+  const left = objectsWithPattern(base, patterns).blob;
   if (left > 0) {
     throw new HistoryError(`ERREUR : vérification échouée, ${left} objet(s) contiennent encore un motif. Fichier de motifs conservé.`);
   }

@@ -486,3 +486,25 @@ test('purge needs the history mode and a patterns file', t => {
   assert.equal(missing.status, 1);
   assert.match(missing.stderr, /Usage : purge --motifs <fichier>/);
 });
+
+test('purge refuses a pattern that matches commit metadata', t => {
+  const s = activeSandbox(t);
+  assert.equal(s.run(['point', 'demo']).status, 0);
+  const head = s.miniGit('rev-parse', 'HEAD');
+  const file = patternsFile(s, 'test@example.invalid\n');
+  const res = s.run(['purge', '--motifs', file]);
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /ERREUR : le motif correspond aussi à \d+ commit\(s\) du mini-dépôt \(auteur, e-mail, sha ou branche\), que la purge ne réécrit pas : préciser le motif\. Fichier de motifs conservé\./);
+  assert.equal(s.miniGit('rev-parse', 'HEAD'), head);
+  assert.ok(fs.existsSync(file));
+});
+
+test('a leftover filter-branch folder is never committed', t => {
+  const s = activeSandbox(t);
+  const leftover = path.join(s.pilotage, '.git-rewrite', 't', 'demo');
+  fs.mkdirSync(leftover, { recursive: true });
+  fs.writeFileSync(path.join(leftover, 'journal.md'), 'ancienne copie\n');
+  const res = s.run(['contexte']);
+  assert.equal(res.status, 0, res.stderr);
+  assert.ok(!s.miniGit('ls-files').includes('.git-rewrite'), s.miniGit('ls-files'));
+});

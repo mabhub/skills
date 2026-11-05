@@ -103,6 +103,9 @@ Un secret commité reste dans tous les commits, même retiré du fichier. Pour l
    `Purge : <n> objet(s) contenaient un motif · <c> commit(s) réécrit(s) · vérification OK · fichier de motifs supprimé`.
    Rien trouvé : `rien à réécrire`, fichier supprimé aussi. Échec de vérification :
    `ERREUR : vérification échouée …`, fichier conservé.
+   La purge ne réécrit que le contenu des fichiers : un motif qui correspond aussi à un
+   commit (auteur, e-mail, sha, branche) est refusé avant toute réécriture, fichier
+   conservé. Préciser le motif.
 
 Limites :
 
