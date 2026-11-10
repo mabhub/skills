@@ -123,6 +123,8 @@ Claude à un moment opportun (voir plus bas).
    - état du dépôt : fichiers modifiés non commités, branche ;
    - ce qui a changé **hors de git** depuis le dernier point (section « Hors dépôt ») ;
    - ce qui est désormais établi et mérite sa place dans `connaissances.md` ;
+   - ce qui vaut au-delà du chantier : le marquer `→ à promouvoir`
+     (`references/formats.md`, « Promotion hors du chantier ») ;
    - questions et actions qui attendent l'utilisateur.
 3. **Écrire** ce qui manque :
    - une entrée de journal, ajoutée en fin de fichier sans relire le fichier :
@@ -208,7 +210,7 @@ Une fois le skill chargé dans la session, le proposer en une ligne :
 - l'utilisateur annonce une pause ;
 - le contexte dépasse un seuil ;
 - la dernière étape du plan est cochée : proposer alors de clore, avec le contrôle de
-  convergence de `references/ouvrir-clore.md`.
+  convergence et la promotion de `references/ouvrir-clore.md`.
 
 Une ligne suffit (« Bon moment pour un point d'étape : étape 2 validée, contexte ~180K.
 Je le fais ? »). Ne pas le proposer à chaque tour : une proposition refusée n'est pas
@@ -287,7 +289,8 @@ Le suivi lui-même consomme des tokens. Pour qu'il reste rentable :
   `status`, `log`, `check-ignore`, `worktree list`). Hors de `.pilotage/`, le skill n'écrit que la ligne
   ajoutée à `.git/info/exclude` par `init`, le fichier pid temporaire de la veille
   (`$XDG_RUNTIME_DIR`) et, avec l'accord de l'utilisateur, une mémoire projet d'une
-  ligne (pointeur vers `.pilotage/INDEX.md`). Un slug qui ne respecte pas le format
+  ligne (pointeur vers `.pilotage/INDEX.md`) et les promotions de clôture, validées une
+  à une et relues pour en retirer secrets et données privées. Un slug qui ne respecte pas le format
   `[a-z0-9-]` est refusé, donc aucune commande ne sort de `.pilotage/`.
 - **Historique git** (facultatif) : écritures limitées à `.pilotage/.git`, jamais de
   remote. Un secret commité y reste après correction du fichier → `purge`. **Ne jamais

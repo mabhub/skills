@@ -12,6 +12,7 @@ de doute sur l'endroit où ranger une information.
 - Journal : statuts `[fait]` et `[décision·Claude]`
 - Identifiants
 - Fichiers complémentaires (dont le registre d'essais)
+- Promotion hors du chantier
 - Specs et plans détaillés existants
 - Plan superpowers en cours d'exécution
 - Nettoyage à chaque point d'étape
@@ -146,6 +147,40 @@ configuration, un essai manuel par l'utilisateur. La colonne « À observer » s
 **avant** l'essai : c'est la prédiction, elle empêche de réinterpréter le résultat après
 coup. Chaque essai a sa colonne de retour arrière, et sa ligne dans « Hors dépôt » s'il
 modifie quelque chose hors de git.
+
+## Promotion hors du chantier
+
+Le suivi reste dans `.pilotage/`, hors git : un piège noté ici sera redécouvert par le
+chantier suivant. Ce qui vaut au-delà du chantier en sort par une promotion, proposée à
+la clôture (`references/ouvrir-clore.md`) et validée par l'utilisateur. Inspiré de
+l'« Agentic Garbage Collector » (capturer, faire remonter, distiller) de
+[Harness Engineering for Coding Agents](https://deepsense.ai/blog/harness-engineering-for-coding-agents-9-patterns-for-more-reliable-ai-assisted-development/)
+(deepsense.ai, 2026).
+
+- **Marquer au fil de l'eau** : au point d'étape, terminer par `→ à promouvoir` la ligne
+  qui vaut au-delà du chantier (piège d'un outil, convention du projet, raison d'un choix
+  qu'un futur lecteur du code devra connaître). À la clôture, la liste se retrouve par
+  `grep -rn 'à promouvoir' .pilotage/<slug>/` au lieu d'être reconstituée de mémoire.
+- **Destinations**, de la plus locale à la plus large :
+
+  | Ce qui a été appris                                       | Destination                                                         |
+  |-----------------------------------------------------------|---------------------------------------------------------------------|
+  | Raison d'un changement précis, piste écartée              | Corps du commit, description de la MR                               |
+  | Convention, piège ou point d'entrée du projet             | Fichier d'instructions du projet (`CLAUDE.md`, `AGENTS.md`)         |
+  | Invariant du code, régression déjà subie                  | Test de régression qui dit ce qu'il protège et pourquoi             |
+  | Erreur détectable mécaniquement                           | Linter, hook, contrôle de CI                                        |
+  | Piège d'un outil, valable dans tous les projets           | Instructions globales de l'utilisateur                              |
+  | Propre au chantier                                        | Rien : reste dans le suivi                                          |
+
+- **Seuil** : une note isolée reste une note. Le même piège rencontré deux fois (dans ce
+  chantier ou un précédent), ou deux ou trois interventions de l'utilisateur sur le même
+  thème, justifient une règle, un test ou un contrôle plutôt qu'une ligne de plus.
+- **Écrire une règle comme une intention** : le but visé, comment décider sur le moment,
+  quoi faire en cas de doute. Garder « jamais » et « toujours » pour les invariants
+  (secrets, opérations destructives, production) : une règle absolue est appliquée à la
+  lettre, y compris aux cas voisins qu'elle n'avait pas prévus.
+- **Généraliser avec prudence** : une règle tirée d'un seul incident colle souvent au cas
+  d'origine. Dans le doute, choisir la destination la plus locale.
 
 ## Specs et plans détaillés existants
 

@@ -70,7 +70,16 @@ rester inférieur à ce qu'il fait gagner.
    quel (`[décision·utilisateur]`). S'il reste des étapes, le chantier n'est pas clos.
    Sans écart, le noter au journal (« convergence : aucun écart, critère de fin OK »).
    Borner la vérification à ce que le suivi désigne : ne pas auditer tout le projet.
-2. Dernière entrée de journal : résultat, ce qui reste hors périmètre.
-3. Dans `INDEX.md`, déplacer la ligne vers « Clos » avec le résultat en une phrase.
-4. Garder les fichiers : ils ne coûtent rien tant qu'on ne les lit pas. Ne rien
+2. **Proposer la promotion** de ce qui vaut au-delà du chantier (l'utilisateur peut la
+   décliner ; destinations et seuil : `references/formats.md`, « Promotion hors du
+   chantier »). Candidats : les lignes marquées `→ à promouvoir`, « Pièges connus », les
+   `[abandonné]` et `[constat]` qui ont coûté cher, les titres de `connaissances.md`.
+   Une ligne par candidat : élément → destination proposée → raison. N'écrire hors de
+   `.pilotage/` qu'avec l'accord de l'utilisateur, candidat par candidat, après avoir
+   retiré du texte promu tout secret et toute donnée privée : la destination est souvent
+   versionnée, parfois publique. Tracer au journal ce qui a été promu et où
+   (`[fait] promu : … → CLAUDE.md`), et ce qui a été refusé.
+3. Dernière entrée de journal : résultat, ce qui reste hors périmètre.
+4. Dans `INDEX.md`, déplacer la ligne vers « Clos » avec le résultat en une phrase.
+5. Garder les fichiers : ils ne coûtent rien tant qu'on ne les lit pas. Ne rien
    supprimer sans demande explicite.
