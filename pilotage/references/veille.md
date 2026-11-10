@@ -7,6 +7,7 @@ appels d'outil, tant que le cache est encore chaud. Au retour, l'utilisateur peu
 `/clear` puis `/pilotage reprise <slug>` sans rien perdre.
 
 Script : `scripts/veille.mjs`, appelé par deux hooks Claude Code. Rien à lancer à la main.
+Propre à Claude Code : les autres agents n'ont pas de veille.
 
 ## Fonctionnement
 

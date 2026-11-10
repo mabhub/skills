@@ -21,7 +21,7 @@ ou si l'utilisateur le demande.
 
 ## Commits
 
-Tous les messages sont générés par le script : Claude n'en rédige aucun, et un commit
+Tous les messages sont générés par le script : l'agent n'en rédige aucun, et un commit
 ne coûte qu'un appel d'outil.
 
 - **Fin de point d'étape** : `pilotage.mjs point <chantier>`, après l'écriture du suivi.
@@ -93,7 +93,7 @@ Un secret commité reste dans tous les commits, même retiré du fichier. Pour l
    syntaxe JavaScript. Les lignes vides sont ignorées. Les lignes `==>`, `glob:`,
    `literal:`, une regex invalide ou qui correspond à la chaîne vide font refuser tout
    le fichier ; l'erreur donne le numéro de la ligne, jamais son contenu.
-   - Une valeur littérale est écrite **par l'utilisateur**. Claude peut écrire un motif
+   - Une valeur littérale est écrite **par l'utilisateur**. L'agent peut écrire un motif
      `regex:` (ce n'est pas le secret), mais **ne lit jamais le fichier** une fois
      l'utilisateur passé dessus.
 3. `pilotage.mjs purge --motifs <fichier>` : rattrapage, réécriture de tout

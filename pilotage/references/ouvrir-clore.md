@@ -19,10 +19,11 @@ reprise n'en a pas besoin.
 - `init` crée le dossier et ajoute `/.pilotage/` au fichier `info/exclude` du dépôt
   (via `git rev-parse --git-path`, donc correct aussi dans un worktree). Hors dépôt
   git, rien à exclure.
-- **Mémoire** : au premier `init` d'un projet, proposer à l'utilisateur une mémoire
-  projet d'une ligne qui pointe vers `.pilotage/INDEX.md` et `/pilotage reprise`, et ne
+- **Mémoire** : au premier `init` d'un projet, si l'agent a une mémoire persistante entre
+  sessions (la mémoire projet de Claude Code, par exemple), proposer à l'utilisateur une
+  mémoire d'une ligne qui pointe vers `.pilotage/INDEX.md` et `/pilotage reprise`, et ne
   l'écrire qu'avec son accord. Rien d'autre : la mémoire est rechargée à chaque
-  session, son contenu se paie à chaque tour.
+  session, son contenu se paie à chaque tour. Sans mémoire persistante, ne rien écrire.
 - **Historique git** : au premier `init`, proposer l'historique facultatif
   (`init --git`, voir `references/historique.md`) **seulement si** `init` a affiché
   `Historique git possible : …`, en une ligne, sans insister. Ne pas le reproposer à

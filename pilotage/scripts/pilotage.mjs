@@ -11,11 +11,14 @@
  *   reprise [<slug>] [--entrees N]               print what a new session needs to resume (index, plan, last journal entries,
  *                                                next free ids, superpowers ledgers, git)
  *   contexte [--session <id>]                    measure the current session: context size, pauses, cache rewrites,
- *                                                cache watch hooks status
+ *                                                cache watch hooks status (Claude Code transcripts only; the session
+ *                                                defaults to $CLAUDE_CODE_SESSION_ID)
  *   point <slug>                                 history on: commit .pilotage/ at the end of a checkpoint
  *   purge --motifs <fichier>                     history on: replace the patterns (secrets) in the whole history
  *
  * History on (.pilotage/.git): `contexte` and `reprise` first commit pending changes (catch-up).
+ *
+ * Only `contexte` depends on Claude Code; every other subcommand works with any coding agent.
  *
  * Output is French (user-facing). Transcript content is never printed: `contexte` reads only
  * types, timestamps and token counts.
@@ -271,7 +274,10 @@ const extraFiles = dir => fs.readdirSync(dir, { recursive: true, withFileTypes: 
     return `- ${rel} (${lines === null ? `${Math.round(size / 1024)} Ko` : `${lines} ligne${lines > 1 ? 's' : ''}`})`;
   });
 
-const ID_PREFIXES = { directive: 'D', 'décision·utilisateur': 'C', 'décision·Claude': 'C', hypothèse: 'H', question: 'Q', attente: 'A' };
+// `décision·Claude` is the former name of `décision·agent`, still found in older journals.
+const ID_PREFIXES = {
+  directive: 'D', 'décision·utilisateur': 'C', 'décision·agent': 'C', 'décision·Claude': 'C', hypothèse: 'H', question: 'Q', attente: 'A',
+};
 const ID_DEFINITION_RE = new RegExp(`\\[(${Object.keys(ID_PREFIXES).join('|')}) ([A-Z])(\\d+)\\]`, 'g');
 
 /**
@@ -514,9 +520,10 @@ const readSettings = file => {
 /**
  * One-line status of the cache watch hooks (see references/veille.md), from user and project settings.
  * @param {string} root - project root
+ * @param {boolean} inClaudeCode - whether the script runs inside Claude Code
  * @returns {string} status line
  */
-const veilleStatus = root => {
+const veilleStatus = (root, inClaudeCode) => {
   const userDir = process.env.CLAUDE_CONFIG_DIR ?? path.join(os.homedir(), '.claude');
   // Lowest to highest precedence, as Claude Code merges them.
   const settings = [
@@ -531,7 +538,11 @@ const veilleStatus = root => {
     .find(({ command }) => new RegExp(`veille\\.mjs["']?\\s+${verb}\\b`).test(command));
   const armer = find('Stop', 'armer');
   const desarmer = find('UserPromptSubmit', 'desarmer');
-  if (!armer) return 'Veille cache : non installée (voir references/veille.md)';
+  if (!armer) {
+    return inClaudeCode
+      ? 'Veille cache : non installée (voir references/veille.md)'
+      : 'Veille cache : sans objet hors Claude Code';
+  }
   if (!desarmer) return 'Veille cache : incomplète, hook UserPromptSubmit absent (voir references/veille.md)';
   if (!fs.existsSync('/proc/self/cmdline')) return 'Veille cache : installée mais inactive, /proc absent (voir references/veille.md)';
   // Same resolution as veille.mjs sees it: command prefix, then settings `env`, then the shell.
@@ -553,13 +564,21 @@ const cmdContexte = ({ flags }) => {
     console.error(`ERREUR : identifiant de session invalide « ${flags.session} » (lettres, chiffres, tirets).`);
     process.exit(1);
   }
+  // Claude Code exports both variables to the commands it runs; other agents set neither.
+  const inClaudeCode = Boolean(process.env.CLAUDECODE);
+  const envSession = process.env.CLAUDE_CODE_SESSION_ID;
+  const sessionId = flags.session ?? (SESSION_RE.test(envSession ?? '') ? envSession : undefined);
   const { root } = projectRoot();
-  console.log(veilleStatus(root));
+  console.log(veilleStatus(root, inClaudeCode));
   const base = path.join(root, DIR_NAME);
   if (historyActive(base)) catchUp({ base, command: 'contexte' }).forEach(line => console.log(line));
-  const file = findTranscript(flags.session);
+  const exact = sessionId ? findTranscript(sessionId) : null;
+  // Without an exact match, guess the most recent transcript, unless the user named the session.
+  const file = exact ?? (flags.session ? null : findTranscript());
   if (!file) {
-    console.log('Transcript introuvable (passer --session <id>). Taille de contexte inconnue.');
+    console.log(inClaudeCode || flags.session
+      ? 'Transcript introuvable (passer --session <id>). Taille de contexte inconnue.'
+      : "Taille de contexte non mesurable : pas de transcript Claude Code pour ce projet. L'estimer (voir references/autres-agents.md).");
     return;
   }
   const { turns, prompts } = parseTranscript(file);
@@ -577,7 +596,7 @@ const cmdContexte = ({ flags }) => {
   // A full rewrite: most of the context written to cache in one turn after a previous turn existed.
   const rewrites = turns.slice(1).filter(turn => turn.written > 0.6 * turn.context && turn.context > 50000);
 
-  console.log(`Session : ${path.basename(file, '.jsonl')}${flags.session ? '' : ' (transcript le plus récent du projet)'}`);
+  console.log(`Session : ${path.basename(file, '.jsonl')}${exact ? '' : ' (transcript le plus récent du projet)'}`);
   console.log(`Contexte au dernier tour : ${fmtK(last.context)} · tours mesurés : ${turns.length}`);
   console.log(`Pic de contexte : ${fmtK(Math.max(...turns.map(turn => turn.context)))}`);
   console.log(`Pause avant le dernier message : ${lastPause ? fmtMin(lastPause.gap) : 'aucune'}`);

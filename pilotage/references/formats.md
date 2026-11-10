@@ -9,7 +9,7 @@ de doute sur l'endroit où ranger une information.
 - Une seule source par information
 - Sections de `plan.md`
 - `connaissances.md`
-- Journal : statuts `[fait]` et `[décision·Claude]`
+- Journal : statuts `[fait]` et `[décision·agent]`
 - Identifiants
 - Fichiers complémentaires (dont le registre d'essais)
 - Promotion hors du chantier
@@ -21,7 +21,7 @@ de doute sur l'endroit où ranger une information.
 
 | Fichier            | Contenu                                                                   | Écriture                           | Lecture                                                          |
 |--------------------|---------------------------------------------------------------------------|------------------------------------|------------------------------------------------------------------|
-| `INDEX.md`         | Une ligne par chantier : objectif, étape, date                            | Réécrit (Edit ciblé)               | Toujours, à la reprise                                           |
+| `INDEX.md`         | Une ligne par chantier : objectif, étape, date                            | Réécrit (modification ciblée)      | Toujours, à la reprise                                           |
 | `plan.md`          | État courant et ce qui s'impose maintenant                                | Réécrit section par section        | À la reprise du chantier                                         |
 | `journal.md`       | Historique : constats, décisions, changements d'avis, pistes abandonnées  | **Ajout en fin seulement**         | Par la fin (`reprise` montre les 3 dernières entrées)            |
 | `connaissances.md` | Synthèse par thème de ce qui est établi, sources externes datées          | Réécrit section par section        | Titres seulement à la reprise ; une section quand on en a besoin |
@@ -74,21 +74,21 @@ laquelle croire.
   vérification, et sont revérifiés avant de s'appuyer dessus si elle est ancienne.
 - Section « Sources externes » : date, titre, URL, ce qu'on en retient.
 
-## Journal : statuts `[fait]` et `[décision·Claude]`
+## Journal : statuts `[fait]` et `[décision·agent]`
 
 Une entrée par point d'étape (ou par événement important), ajoutée en fin de fichier :
 
 ```
 ## 2026-10-09 15:40 — <titre court>
 - [fait] Étape 2 : export CSV — preuve : `npm test -- export` 0 échec (12 avant) — commits abc1234..def5678
-- [décision·Claude C4] Pagination par curseur plutôt que par offset — pourquoi : tri instable — coût si faux : faible (1 fonction)
+- [décision·agent C4] Pagination par curseur plutôt que par offset — pourquoi : tri instable — coût si faux : faible (1 fonction)
 - [constat] L'API renvoie 429 au-delà de 10 req/s (source : `scripts/sonde.sh`, sortie dans mesures/429.txt)
 - [remplace] D2 (format JSON) → [directive D5] CSV, à la demande de l'utilisateur
 ```
 
 - `[fait]` : une étape terminée cite **la commande de vérification, son résultat, et les
   commits**. Sans preuve, ce n'est pas un `[fait]`, c'est une affirmation.
-- `[décision·Claude]` indique le **coût si faux** (faible, moyen, élevé, et pourquoi).
+- `[décision·agent]` indique le **coût si faux** (faible, moyen, élevé, et pourquoi).
   C'est ce qui dit quoi revérifier en priorité à la reprise. Un coût élevé justifie un
   fichier dans `decisions/` et, idéalement, une validation par l'utilisateur.
 - La source d'un constat peut être un sous-agent (« source : relecture par un sous-agent,
@@ -102,7 +102,7 @@ qu'une citation recopiée, et ne diverge pas de l'original.
 | Préfixe | Statuts                                      |
 |---------|----------------------------------------------|
 | `D`     | `[directive]`                                |
-| `C`     | `[décision·utilisateur]`, `[décision·Claude]` |
+| `C`     | `[décision·utilisateur]`, `[décision·agent]` |
 | `H`     | `[hypothèse]`                                |
 | `Q`     | `[question]`                                 |
 | `A`     | `[attente]`                                  |
@@ -134,7 +134,8 @@ contenu (`inventaire-endpoints.md`, `mesures/`, `controles/`), pas d'après la d
 - **Décisions et changements d'avis restent dans le journal**, même s'ils le concernent.
 - **Conserver les preuves** : un script ou une sortie qui a servi à établir un fait ou à
   valider une étape est copié dans `.pilotage/<chantier>/` (par exemple `controles/`),
-  jamais laissé dans le scratchpad, qui disparaît avec la session.
+  jamais laissé dans un dossier temporaire de la session (scratchpad), qui disparaît
+  avec elle.
 - **Gros fichiers de données** : ne pas les lire en entier ; noter dans « Repères » la
   commande qui en extrait l'utile.
 - Une partie qui a son propre plan devient un chantier séparé, relié au premier.

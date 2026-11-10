@@ -19,8 +19,13 @@ des fichiers, une session neuve le relit en un appel, et on peut repartir d'un
 contexte court aussi souvent que c'est utile. Un contexte court donne aussi un
 meilleur travail : les fausses pistes et les vieilles sorties ne parasitent plus.
 
-Le skill ne lance jamais `/clear` ni `/compact` (Claude ne le peut pas). Il prépare le
+Le skill ne lance jamais `/clear` ni `/compact` (l'agent ne le peut pas). Il prépare le
 terrain et **recommande** ; l'utilisateur décide.
+
+Les commandes citées sont celles de Claude Code : `/clear` vide le contexte, `/compact`
+le résume, `/pilotage` invoque le skill. **Avec un autre agent que Claude Code**, lire
+d'abord `references/autres-agents.md` (équivalents des commandes, mesure du contexte,
+veille).
 
 Script : `node <dossier du skill>/scripts/pilotage.mjs <commande>`, lancé depuis la
 racine du projet. Cinq commandes : `init`, `decision`, `modele`, `reprise`, `contexte`,
@@ -54,8 +59,9 @@ complémentaires au besoin. **Ouvrir ou clore un chantier** : lire
 `references/ouvrir-clore.md` (structure du dossier, `init`, pointeur mémoire,
 contrôle de convergence). Une reprise n'en a pas besoin.
 
-- Le dossier est caché et exclu de git, donc `rg` et l'outil Grep l'ignorent par
-  défaut. Y accéder par chemin explicite (`Read`, ou `grep -r … .pilotage/`).
+- Le dossier est caché et exclu de git, donc `rg` et les outils de recherche qui
+  l'utilisent l'ignorent par défaut. Y accéder par chemin explicite (lecture directe du
+  fichier, ou `grep -r … .pilotage/`).
 - **Formats détaillés** dans `references/formats.md` : rôle et sections de chaque
   fichier, identifiants, fichiers complémentaires, articulation avec une spec ou un plan
   superpowers. Le lire à l'ouverture, ou en cas de doute sur où ranger une information.
@@ -71,18 +77,18 @@ journal > décisions > connaissances > fichiers complémentaires.
 Un fichier relu par une session neuve fait autorité par défaut. Une supposition écrite
 sans marque devient une consigne. Chaque élément porte donc un statut :
 
-| Statut                   | Sens                                                                      | À la reprise                                                     |
-|--------------------------|---------------------------------------------------------------------------|------------------------------------------------------------------|
-| `[directive]`            | Demandé explicitement par l'utilisateur (citer ou paraphraser fidèlement) | S'applique                                                       |
-| `[fait]`                 | Étape terminée, avec **sa preuve** : commande, résultat, commits          | Acquis ; à confronter à git                                      |
-| `[décision·utilisateur]` | Choix validé par l'utilisateur, avec sa raison                            | S'applique tant qu'il n'est pas remplacé                         |
-| `[décision·Claude]`      | Choix fait par Claude sans validation explicite, avec son **coût si faux** | S'applique, mais réversible ; revérifier d'abord les coûteux     |
-| `[constat]`              | Fait vérifié, **avec sa source** (`fichier:ligne`, commande, sortie)      | Fiable, re-vérifiable                                            |
-| `[hypothèse]`            | Supposition non vérifiée, moyen de la vérifier, ce qu'elle bloque         | Ne s'applique jamais telle quelle : vérifier d'abord             |
-| `[abandonné]`            | Piste écartée, avec la raison                                             | Contexte seulement, évite de la retenter                         |
-| `[remplace]`             | Changement d'avis : cite l'élément remplacé et le nouveau                 | L'ancien élément cesse de s'appliquer                            |
-| `[question]`             | Point ouvert à trancher par l'utilisateur                                 | À reposer si toujours ouvert                                     |
-| `[attente]`              | Action à faire par l'utilisateur (accord, essai manuel, observation)      | À rappeler si toujours en attente                                |
+| Statut                   | Sens                                                                        | À la reprise                                                 |
+|--------------------------|-----------------------------------------------------------------------------|--------------------------------------------------------------|
+| `[directive]`            | Demandé explicitement par l'utilisateur (citer ou paraphraser fidèlement)   | S'applique                                                   |
+| `[fait]`                 | Étape terminée, avec **sa preuve** : commande, résultat, commits            | Acquis ; à confronter à git                                  |
+| `[décision·utilisateur]` | Choix validé par l'utilisateur, avec sa raison                              | S'applique tant qu'il n'est pas remplacé                     |
+| `[décision·agent]`       | Choix fait par l'agent sans validation explicite, avec son **coût si faux** | S'applique, mais réversible ; revérifier d'abord les coûteux |
+| `[constat]`              | Fait vérifié, **avec sa source** (`fichier:ligne`, commande, sortie)        | Fiable, re-vérifiable                                        |
+| `[hypothèse]`            | Supposition non vérifiée, moyen de la vérifier, ce qu'elle bloque           | Ne s'applique jamais telle quelle : vérifier d'abord         |
+| `[abandonné]`            | Piste écartée, avec la raison                                               | Contexte seulement, évite de la retenter                     |
+| `[remplace]`             | Changement d'avis : cite l'élément remplacé et le nouveau                   | L'ancien élément cesse de s'appliquer                        |
+| `[question]`             | Point ouvert à trancher par l'utilisateur                                   | À reposer si toujours ouvert                                 |
+| `[attente]`              | Action à faire par l'utilisateur (accord, essai manuel, observation)        | À rappeler si toujours en attente                            |
 
 Règles :
 
@@ -91,6 +97,8 @@ Règles :
   `[hypothèse H2]`, `[directive D1]` (préfixes D, C pour décision, H, Q, A). Jamais
   réutilisé ni renuméroté ; `reprise` affiche les prochains libres. Ailleurs, on renvoie
   par l'identifiant seul (`bloque : H2`, `[remplace] D1 → D4`) sans recopier le texte.
+- `[décision·Claude]`, ancien nom de `[décision·agent]`, reste reconnu dans les journaux
+  existants. Écrire `[décision·agent]` dans les nouvelles entrées.
 - Un changement d'avis ne réécrit jamais l'entrée passée du journal. On ajoute une
   entrée `[remplace]`, puis on met à jour la section « En vigueur » de `plan.md`.
 - « En vigueur » ne contient que des `[directive]` et des `[décision·…]` actives, chacune
@@ -100,25 +108,25 @@ Règles :
 
 ## Faire un point d'étape
 
-C'est le cœur du skill. Déclenché par l'utilisateur, par `WORKFLOWS.md`, ou proposé par
-Claude à un moment opportun (voir plus bas).
+C'est le cœur du skill. Déclenché par l'utilisateur, par ses instructions, ou proposé par
+l'agent à un moment opportun (voir plus bas).
 
-1. **Mesurer** : `pilotage.mjs contexte` (ajouter `--session <id>` si l'identifiant de
-   session est connu, par exemple le dernier segment du chemin du scratchpad ; sinon le
-   script prend le transcript le plus récent du projet, ce qui peut se tromper si deux
-   sessions tournent dans le même dossier). Sa première ligne donne l'état de la veille,
-   à recopier telle quelle dans la recommandation.
+1. **Mesurer** : `pilotage.mjs contexte`. Dans Claude Code, il trouve seul la session
+   courante (`--session <id>` pour en viser une autre). Sa première ligne donne l'état de
+   la veille, à recopier telle quelle dans la recommandation. Avec un autre agent, la
+   taille n'est pas mesurable : voir `references/autres-agents.md`.
 2. **Auditer** ce qui s'est passé depuis le dernier point d'étape. Pour chaque catégorie,
    se demander si c'est tracé :
    - consignes données par l'utilisateur ;
    - décisions prises, par qui, et pourquoi ;
-   - changements d'avis (les siens et ceux de Claude) ;
+   - changements d'avis (les siens et ceux de l'agent) ;
    - constats qui ont coûté cher à établir (une recherche, un debug) ;
    - pistes essayées et abandonnées ;
    - hypothèses sur lesquelles le travail repose encore ;
    - révisions du macro-plan, étapes terminées et leur preuve ;
    - choses reportées volontairement, pièges rencontrés (faux échecs) ;
-   - scripts ou sorties qui ont servi de preuve et ne sont encore que dans le scratchpad ;
+   - scripts ou sorties qui ont servi de preuve et ne sont encore que dans un dossier
+     temporaire de la session (scratchpad) ;
    - questions ouvertes ;
    - état du dépôt : fichiers modifiés non commités, branche ;
    - ce qui a changé **hors de git** depuis le dernier point (section « Hors dépôt ») ;
@@ -136,7 +144,7 @@ Claude à un moment opportun (voir plus bas).
      - [décision·utilisateur C3] … — pourquoi : …
      EOF
      ```
-   - `plan.md` par Edit ciblés : « Où on en est », cases du plan, « En vigueur »,
+   - `plan.md` par modifications ciblées : « Où on en est », cases du plan, « En vigueur »,
      hypothèses, « En attente de l'utilisateur », « Reporté volontairement », « Pièges
      connus », « Hors dépôt », date du dernier point d'étape ;
    - `connaissances.md` : la section du thème concerné, réécrite, avec sa source ;
@@ -145,7 +153,7 @@ Claude à un moment opportun (voir plus bas).
      décision a des alternatives ou des conditions de remise en cause qui ne tiennent pas
      en une ligne ;
    - les fichiers complémentaires concernés, et leur ligne dans « Repères » s'ils sont
-     nouveaux ; copier les preuves hors du scratchpad.
+     nouveaux ; copier les preuves hors du dossier temporaire.
 4. **Nettoyer** : retirer des hypothèses et des attentes ce qui est réglé, écrire
    « aucune » dans une section vide, garder « Où on en est » court. Une section périmée
    trompe la reprise autant qu'un oubli.
@@ -254,7 +262,7 @@ Dans une session neuve :
    dessus. Historique actif : le bloc git liste les commits depuis le dernier point
    d'étape ; une `ALERTE` (rebase, changement de branche) la rend approximative.
 3. Annoncer en 3 à 5 lignes : où on en est, la prochaine action, les hypothèses à
-   vérifier avant de s'appuyer dessus (et les `[décision·Claude]` coûteuses), les
+   vérifier avant de s'appuyer dessus (et les `[décision·agent]` coûteuses), les
    questions et actions en attente, les pièges connus utiles pour la suite.
 4. Ne lire une décision détaillée ou une entrée ancienne du journal que si la tâche du
    moment en a besoin (`grep -n` dans `.pilotage/<slug>/` plutôt qu'une lecture
@@ -266,7 +274,7 @@ Le suivi lui-même consomme des tokens. Pour qu'il reste rentable :
 
 - mettre à jour aux points d'étape, pas à chaque tour ;
 - ajouter au journal par `cat >> … <<'EOF'` (pas besoin de relire le fichier) ;
-- modifier `plan.md` par Edit ciblés plutôt que le réécrire entier ;
+- modifier `plan.md` par modifications ciblées plutôt que le réécrire entier ;
 - une ligne par élément ; les détails vont dans un fichier de décision ou restent dans
   le code et les commits ;
 - `reprise` plutôt que trois ou quatre lectures séparées.
