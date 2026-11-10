@@ -206,6 +206,9 @@ Une fois le skill chargé dans la session, le proposer en une ligne :
 
 - une étape du plan vient d'être validée (tests verts, commit fait) ;
 - un long debug vient d'aboutir ;
+- deux tentatives viennent d'échouer sur la même piste : avant une troisième, tracer
+  l'`[abandonné]` ou l'`[hypothèse]` révisée (une ligne de journal suffit), pour qu'une
+  reprise ne la retente pas ;
 - la tâche suivante touche une autre zone du code ;
 - l'utilisateur annonce une pause ;
 - le contexte dépasse un seuil ;
