@@ -181,7 +181,10 @@ const cmdInit = ({ flags }) => {
     }
     const dir = path.join(base, slug);
     fs.mkdirSync(path.join(dir, 'decisions'), { recursive: true });
-    const values = { TITRE: flags.titre || slug, DATE: today() };
+    const envSession = process.env.CLAUDE_CODE_SESSION_ID ?? '';
+    // Ties the opening entry to its transcript (see references/formats.md, "Journal").
+    const session = SESSION_RE.test(envSession) ? ` · session ${envSession.slice(0, 8)}` : '';
+    const values = { TITRE: flags.titre || slug, DATE: today(), SESSION: session };
     ['plan.md', 'journal.md', 'connaissances.md'].forEach(out => {
       const written = writeIfAbsent(path.join(dir, out), render(out, values));
       console.log(`${dir}/${out} ${written ? 'créé' : 'existant (non modifié)'}`);

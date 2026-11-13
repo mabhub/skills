@@ -142,10 +142,10 @@ const disarm = session => {
   return true;
 };
 
-const wakeMessage = slugs => [
+const wakeMessage = (slugs, session) => [
   `[pilotage · veille] ${Math.round(DELAI / 60)} min sans réponse de l'utilisateur : le cache de la conversation expire à 1 h.`,
   `Point d'étape éclair sur ${slugs.join(', ')} :`,
-  "- au plus 2 appels d'outil : une entrée de journal ajoutée par `cat >>` pour ce qui n'est pas encore tracé, et un Edit ciblé de plan.md seulement si « Où on en est » est périmé ;",
+  `- au plus 2 appels d'outil : une entrée de journal (titre « ## <date heure> · session ${session.slice(0, 8)} — … ») ajoutée par \`cat >>\` pour ce qui n'est pas encore tracé, et un Edit ciblé de plan.md seulement si « Où on en est » est périmé ;`,
   '- aucune lecture de fichier, aucune mesure, aucune autre action ;',
   "- si tout est déjà tracé, aucun appel d'outil ;",
   `- termine par une seule ligne : « Suivi à jour. Pour reprendre : /clear puis /pilotage reprise ${slugs[0]} ».`,
@@ -186,7 +186,7 @@ const armer = input => {
   setTimeout(() => {
     fs.rmSync(pidFile(session), { force: true });
     log('réveil');
-    process.stderr.write(`${wakeMessage(slugs)}\n`);
+    process.stderr.write(`${wakeMessage(slugs, session)}\n`);
     process.exit(2);
   }, DELAI * 1000);
 };

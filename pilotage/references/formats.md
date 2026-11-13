@@ -79,13 +79,19 @@ laquelle croire.
 Une entrée par point d'étape (ou par événement important), ajoutée en fin de fichier :
 
 ```
-## 2026-10-09 15:40 — <titre court>
+## 2026-10-09 15:40 · session 1a2b3c4d — <titre court>
 - [fait] Étape 2 : export CSV — preuve : `npm test -- export` 0 échec (12 avant) — commits abc1234..def5678
 - [décision·agent C4] Pagination par curseur plutôt que par offset — pourquoi : tri instable — coût si faux : faible (1 fonction)
 - [constat] L'API renvoie 429 au-delà de 10 req/s (source : `scripts/sonde.sh`, sortie dans mesures/429.txt)
 - [remplace] D2 (format JSON) → [directive D5] CSV, à la demande de l'utilisateur
 ```
 
+- Le titre porte les 8 premiers caractères de l'identifiant de session (ligne `Session`
+  de `contexte`). Il relie l'entrée au transcript d'où elle vient : quand le suivi résume
+  trop, on y retrouve le texte exact d'une consigne ou d'une discussion. Sans identifiant
+  (autre agent, transcript introuvable), l'omettre. Les entrées sans session restent
+  valides. Le transcript disparaît après `cleanupPeriodDays` (30 jours par défaut dans
+  Claude Code) : la référence n'est qu'un filet, elle ne remplace pas une entrée complète.
 - `[fait]` : une étape terminée cite **la commande de vérification, son résultat, et les
   commits**. Sans preuve, ce n'est pas un `[fait]`, c'est une affirmation.
 - `[décision·agent]` indique le **coût si faux** (faible, moyen, élevé, et pourquoi).

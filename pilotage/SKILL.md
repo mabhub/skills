@@ -113,7 +113,8 @@ l'agent à un moment opportun (voir plus bas).
 
 1. **Mesurer** : `pilotage.mjs contexte`. Dans Claude Code, il trouve seul la session
    courante (`--session <id>` pour en viser une autre). Sa première ligne donne l'état de
-   la veille, à recopier telle quelle dans la recommandation. Avec un autre agent, la
+   la veille, à recopier telle quelle dans la recommandation ; sa ligne `Session`, les
+   8 caractères à reporter dans le titre de l'entrée de journal. Avec un autre agent, la
    taille n'est pas mesurable : voir `references/autres-agents.md`.
 2. **Auditer** ce qui s'est passé depuis le dernier point d'étape. Pour chaque catégorie,
    se demander si c'est tracé :
@@ -139,7 +140,7 @@ l'agent à un moment opportun (voir plus bas).
      ```bash
      cat >> .pilotage/<slug>/journal.md <<'EOF'
 
-     ## 2026-10-09 15:40 — <titre court>
+     ## 2026-10-09 15:40 · session 1a2b3c4d — <titre court>
      - [constat] … (source : src/x.js:42)
      - [décision·utilisateur C3] … — pourquoi : …
      EOF
