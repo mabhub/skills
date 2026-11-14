@@ -44,8 +44,23 @@ Chaque piège a coûté au moins une passe ou des données. Classés par outil.
   - série parasite, doublon d'une série existante sous un autre nom, ou livre de série
     sans série ;
   - éditeur avec adresse postale (`Éditions X 12, rue Exemple 75000 Paris`).
+  - **tri d'auteur** (`books.author_sort`) repris de l'`opf:file-as` de l'EPUB, pas de la
+    table `authors` (des centaines de livres sur un seul import) → le recalculer depuis
+    `authors.sort` ;
+  - **ISBN relu de l'EPUB** : un ISBN volontairement omis revient, et un ISBN malformé
+    passe tel quel (`EPUB978…-1234`). → Relire `identifiers` après chaque lot. Pour en
+    retirer un : `set_metadata -f identifiers:…` **remplace tous les identifiants** (et
+    `isbn:` est refusé) → repasser ceux à garder (`identifiers:amazon:…,google:…`), ou
+    `new_api.set_field('identifiers', {id: dict})` avec le dictionnaire relu, sans `isbn` ;
+  - **date réduite à l'année** (`--pubdate 2011`, ou EPUB qui ne donne que l'année) :
+    complétée au **15 du mois courant** (affichée « nov. 2011 »). → Passer `AAAA-01-01`.
+  - sans `--tags`, les étiquettes de l'EPUB sont gardées telles quelles.
   → Options utiles dès l'ajout : `--title`, `--authors`, `--languages`, `--isbn`, `--tags`.
-  Puis `set_metadata -f sort:"Titre, Le" -f tags:… -f publisher:…`.
+  Puis `set_metadata -f sort:"Titre, Le" -f tags:… -f publisher:…`, ou `new_api.set_field`
+  pour un lot.
+- **Lire l'id attribué sur sa ligne exacte** : la sortie est traduite (« Ajouter les ids
+  de livre : N » en français) et DeDRM/noDRM écrit des uuid sur stdout ; un motif trop
+  large a pris un uuid pour l'id. Relire ensuite en SQL.
 - **`set_metadata -f title:` ne recalcule pas un tri à article rejeté** : poser
   `-f sort:` explicitement à chaque changement de titre.
 - **Réintégrer un dossier « fantôme » par `add`** crée un NOUVEAU dossier : l'ancien
@@ -86,6 +101,10 @@ Chaque piège a coûté au moins une passe ou des données. Classés par outil.
   l'attribut. → Résoudre les deux noms en **ids** ; si l'id est le même, c'est un
   `UPDATE … SET name=?`, pas une fusion. Un dry-run qui compte les orphelins avant/après
   le détecte (il annonçait 862 livres sans tag au lieu de 831).
+  Corollaire : pour repérer un écart **de casse seule** (`books.author_sort` contre
+  `authors.sort`), comparer avec `COLLATE BINARY`, sinon il est invisible.
+- `group_concat` ne garantit aucun ordre : pour contrôler un tri multi-auteurs, ordonner
+  par l'id du lien (`books_authors_link.id`) dans une sous-requête.
 - **`author_sort` existe sur deux tables** : `authors.sort` (par auteur) et
   `books.author_sort` (par livre). Corriger l'un laisse l'autre ; c'est `books` que
   l'OPF exporte en `opf:file-as`. Vérifier les deux.
@@ -124,11 +143,31 @@ Chaque piège a coûté au moins une passe ou des données. Classés par outil.
   textuel s'écrit tel quel).
 - Les anciennes valeurs (autre version du plugin, Goodreads) ne sont pas reproductibles :
   ne pas les écraser sans décision.
+- Ouvrir la base par `new_api` sous `calibre-debug` lance le comptage de pages natif de
+  Calibre en arrière-plan : trace `FileNotFoundError` venant de `calibre/db/page_count.py`
+  à la sortie. Sans effet sur les écritures ; ne pas la confondre avec une erreur du lot.
 
 ## Contenu des EPUB
 
-- Le texte peut être dans des fichiers `.xml`, pas seulement `.html` / `.xhtml` : se fier
-  au manifeste de l'OPF (media-type `application/xhtml+xml`).
+- Le texte peut être dans des fichiers `.xml`, `.htm`, voire **sans extension**, pas
+  seulement `.html` / `.xhtml` : un compteur limité à `.x?html` les voit vides. Se fier au
+  manifeste de l'OPF (media-type `application/xhtml+xml`).
+- **Le contrôle ZIP ne suffit pas.** `testzip` et `unzip -t` passent sur deux défauts qui
+  rendent les chapitres introuvables au lecteur (0 mot au comptage) : noms de membres
+  **doublement encodés** (`├⌐t├⌐` pour `été`) et **items du manifeste absents
+  du ZIP**. → Après un import, vérifier que chaque `href` du manifeste existe dans le ZIP.
+- Un membre dont le nom diffère entre le répertoire central et l'en-tête local fait
+  refuser sa lecture par `zipfile` : un script de réparation qui relit tout échoue dessus.
+  L'écarter d'abord.
+- **Un membre ZIP corrompu interrompt un ajout en masse au milieu du lot.** → `testzip`
+  sur **tous** les fichiers du lot avant d'écrire, et prévoir une reprise (ids déjà
+  ajoutés relus en base).
+- **Noms de fichiers en NFD** (archives venues de macOS) : `calibredb add` ne trouve pas
+  le fichier. → Ajouter des copies renommées en NFC. Normaliser aussi en NFC tout titre ou
+  auteur tiré d'un nom de fichier ou d'une base tierce avant de le comparer ou de l'écrire.
+- **Couverture non déclarée** : un `cover.jpg` posé à côté de l'EPUB, ou présent dans le
+  ZIP sans être déclaré dans l'OPF, n'est pas repris par `add` → livre sans couverture.
+  L'attacher ensuite (`set_metadata --field cover:`).
 - Les entités `&rsquo;` sont des apostrophes valides, pas une corruption.
 - `unzip -t` signale des anomalies de métadonnées ZIP (`WinNT security data missing`,
   drapeau UTF-8) sans impact sur le contenu : vérifier que le texte s'extrait avant de
@@ -148,6 +187,8 @@ Chaque piège a coûté au moins une passe ou des données. Classés par outil.
   un champ inchangé ne trompe personne.
 - Normaliser un auteur en ignorant `père` / `fils` ou des particules a fusionné des
   séries d'auteurs distincts : auditer les séries multi-auteurs après toute extraction.
+- **Une empreinte de prose sur un texte vide est commune à tous les textes vides** : deux
+  EPUB illisibles paraissent identiques. N'utiliser l'empreinte qu'au-delà de ~500 mots.
 - Chaque détecteur de doublons a produit des faux positifs : traductions distinctes,
   volumes distincts, homonymes (deux romancières au même nom de famille). Comparer le
   contenu réel avant toute suppression.
@@ -178,6 +219,10 @@ Chaque piège a coûté au moins une passe ou des données. Classés par outil.
 - `gio trash` échoue (« Permission non accordée ») dans un dossier en lecture seule
   (`dr-x`, fréquent sur des archives de disques) : `chmod u+w dossier`, `gio trash`,
   puis rétablir `chmod u-w`.
+- **`zip -FF` peut boucler indéfiniment** sur un ZIP endommagé : toujours sous
+  `timeout 30`, et sur une copie.
+- `calibre-debug -c '…'` : une expression génératrice ne voit pas les variables du script
+  (les compréhensions de liste, si). Préférer un fichier `calibre-debug script.py -- args`.
 - Selon le shell réellement utilisé par l'outil, `pipestatus` (zsh) peut être absent et
   `printf` avec décimales dépend de la locale (`LC_NUMERIC=C`).
 
