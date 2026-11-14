@@ -25,6 +25,7 @@ import os
 import re
 import sys
 import zipfile
+from urllib.parse import unquote
 from xml.dom import minidom
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -109,7 +110,10 @@ def content_docs(z, names):
             mt = re.search(r'media-type="([^"]+)"', item)
             href = re.search(r'href="([^"]+)"', item)
             if mt and href and mt.group(1) == 'application/xhtml+xml':
-                p = os.path.normpath(os.path.join(root, html.unescape(href.group(1)))).replace('\\', '/')
+                # href est une URL : ancre éventuelle retirée AVANT de décoder %20, %5B…
+                # (un %23 décodé est un « # » du nom de fichier, pas une ancre)
+                h = unquote(html.unescape(href.group(1)).split('#')[0])
+                p = os.path.normpath(os.path.join(root, h)).replace('\\', '/')
                 if p in names:
                     docs.append(p)
     if not docs:
@@ -123,8 +127,12 @@ def analyse(path, deep=False):
         z = zipfile.ZipFile(path)
     except Exception as e:
         return {'fichier': path, 'err': f'zip: {str(e)[:40]}'}
+    # un membre illisible (en-tête local corrompu) ne doit pas interrompre un lot de fichiers
     with z:
-        return _analyse(z, path, deep)
+        try:
+            return _analyse(z, path, deep)
+        except Exception as e:
+            return {'fichier': path, 'err': f'lecture: {type(e).__name__}: {str(e)[:40]}'}
 
 
 def _analyse(z, path, deep):
