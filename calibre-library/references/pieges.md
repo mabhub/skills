@@ -68,6 +68,20 @@ Chaque piège a coûté au moins une passe ou des données. Classés par outil.
 - **`embed_metadata` ≠ `backup_metadata`** : le premier réécrit l'OPF *interne* aux
   EPUB, le second régénère les `metadata.opf` posés à côté. Pour resynchroniser après
   des écritures, c'est `backup_metadata --all`.
+- **Intervalle d'ids exclusif à droite** : `calibredb remove 57-85` supprime 57 à 84,
+  pas le 85 (dit par l'aide de `remove`). → Lister les ids un par un
+  (`57,58,…`), ou écrire la borne haute + 1, puis recompter en base.
+- **`calibredb remove` passe par la corbeille de Calibre** (`.caltrash` à la racine de la
+  bibliothèque), que Calibre vide seul après un délai réglable (réglage
+  `expire_old_trash_after`). Ce n'est pas une sauvegarde : copier d'abord le perdant dans
+  `trash/<LOT>/` (`backup_lot.py --trash`). Ne jamais passer `--permanent`, qui supprime
+  sans passer par la corbeille. Ne pas toucher à `.caltrash` à la main.
+- **`calibredb check_library`** donne en ligne de commande les rapports de « Vérifier la
+  bibliothèque » (`missing_formats`, `extra_files`, `malformed_paths`…), en CSV avec
+  `-c`. Utile après un lot qui a ajouté, remplacé ou supprimé des fichiers. Comme tout
+  `calibredb`, à lancer GUI fermé et hors diagnostic en lecture seule. Nos éléments posés
+  à la racine (fichier d'état, sauvegardes) y sortent comme invalides : les écarter avec
+  `-n` et ne jamais les supprimer (voir Interface Calibre).
 
 ## Outils MCP calibre
 
