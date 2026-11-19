@@ -193,6 +193,29 @@ const processData = () => {
 };
 ```
 
+**Délais et annulation : `AbortSignal` plutôt qu'un minuteur géré à la main**
+
+```javascript
+// ✅ Correct - délai seul, ou délai combiné à une annulation
+const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+
+const controller = new AbortController();
+const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]);
+
+// ❌ Éviter - setTimeout + AbortController + clearTimeout à la main
+```
+
+**Relancer une erreur sans perdre l'originale : `cause`**
+
+```javascript
+// ✅ Correct
+try {
+  await loadConfig(path);
+} catch (err) {
+  throw new Error(`Configuration illisible : ${path}`, { cause: err });
+}
+```
+
 ### 7. Structures de Contrôle
 
 **Éviter if/else en cascade et switch/case**
@@ -274,7 +297,7 @@ createUser({
 
 ### 9. Gestion des Dépendances
 
-**Versions @latest par défaut**
+**Versions @latest par défaut à l'ajout d'une dépendance**
 
 ```bash
 # ✅ Preferred - Install latest version
@@ -283,6 +306,8 @@ npm install express@latest
 # Exception: compatibility constraints
 npm install react@18
 ```
+
+Le `@latest` vaut pour **ajouter** une dépendance : la version est ensuite figée par le lockfile. Un `npx` lancé de façon répétée (scripts, skills, CI) n'a pas de lockfile : y épingler la version (`npx outil@1.4.2`), et la mettre à jour délibérément.
 
 ### 10. Environnement Node.js
 
@@ -330,6 +355,12 @@ if (x == '42') { ... }       // true even if x is the number 42
 | `reverse()`        | `toReversed()`        |
 | `splice()`         | `toSpliced()`         |
 | `array[i] = value` | `with(index, value)`  |
+
+**Pièges :**
+
+- `Set`, `NodeList`, `arguments` n'ont pas ces méthodes (→ `TypeError`) : convertir d'abord, `[...set].toSorted()`, `Array.from(nodeList).toSorted()`.
+- Sur un tableau à trous, `toSorted()` et `toReversed()` remplacent les trous par `undefined`, alors que `sort()` les conserve.
+- Les tableaux typés ont leurs propres `toSorted()` et `with()`, qui renvoient un tableau typé du même type.
 
 ```javascript
 // ✅ Correct - Non-mutative methods
@@ -386,6 +417,18 @@ Si une convention existe, la suivre même si elle diffère de la colocation.
 
 **Nommage :** `<module>.test.js` (ou `.spec.js` si le projet utilise cette forme). Cohérence avec l'existant avant tout.
 
+### 14. Cible d'exécution
+
+**La cible vient du projet, jamais d'une supposition**
+
+Avant d'utiliser une API récente (JS, DOM, CSS), lire la cible déclarée par le projet :
+
+1. `browserslist` (champ de `package.json` ou fichier `.browserslistrc`)
+2. `engines.node` dans `package.json`
+3. Documentation du projet (`CLAUDE.md`, `AGENTS.md`, `README.md`)
+
+Si l'API dépasse la cible déclarée, ne pas l'utiliser, ou le signaler. Si le projet ne déclare aucune cible et que l'API est récente (par exemple `Object.groupBy` ou `Promise.withResolvers`, absents de Node 20), poser la question plutôt que d'ajouter de soi-même un polyfill ou un code de repli.
+
 ## Exemples Complets
 
 Voir [javascript-examples.md](./references/javascript-examples.md) pour des exemples complets (script Node.js, module ESM réutilisable).
@@ -408,4 +451,6 @@ Avant de finaliser un script JavaScript :
 - [ ] Comparaisons strictes (`===`, `!==`) utilisées à la place de `==` et `!=`
 - [ ] Méthodes non mutatives de tableaux utilisées par défaut (`toSorted`, `toReversed`, `toSpliced`, `with`)
 - [ ] Fichiers de tests colocalisés avec le code testé (sauf convention projet différente)
+- [ ] API récentes compatibles avec la cible déclarée du projet (sinon question posée)
+- [ ] Versions épinglées dans les `npx` lancés de façon répétée
 - [ ] Linting projet respecté (si présent)
