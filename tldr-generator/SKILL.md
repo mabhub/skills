@@ -245,7 +245,7 @@ Pour éviter les cycles de regénération coûteux en tokens :
 - Ne traiter que les fichiers `.md` du répertoire cible — ne jamais lire de fichiers hors périmètre (`.env`, configs, scripts)
 - Si un front-matter contient des adresses email, URLs internes ou tokens : ne pas les reproduire dans le TL;DR
 - Ne jamais inclure de métadonnées système (chemins absolus, identifiants de fichier) dans la sortie
-- `list-articles.mjs --html` produit une page qui charge `marked` depuis jsDelivr (version non épinglée) et lit les `.md` voisins : la publier seulement si la bibliothèque est destinée à être publique. Sans réseau, la page bascule sur un rendu simplifié
+- `list-articles.mjs --html` produit une page qui charge `marked` depuis jsDelivr (version épinglée, empreinte SRI : pour monter de version, recalculer l'empreinte) et lit les `.md` voisins : la publier seulement si la bibliothèque est destinée à être publique. Sans réseau, la page bascule sur un rendu simplifié
 
 ## Notes d'implémentation
 

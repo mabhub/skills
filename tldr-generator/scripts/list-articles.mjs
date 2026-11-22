@@ -333,7 +333,11 @@ const filterEl = document.getElementById("filter");
  */
 const markedReady = new Promise(resolve => {
   const cdn = document.createElement("script");
-  cdn.src = "https://cdn.jsdelivr.net/npm/marked/marked.min.js";
+  // Pinned with its SRI hash: an unpinned URL follows every new release, and
+  // marked.min.js is gone from recent ones (404, so tables were never rendered).
+  cdn.src = "https://cdn.jsdelivr.net/npm/marked@18.1.3/lib/marked.umd.js";
+  cdn.integrity = "sha384-tp/syYhgK+FeVVrz2SPmgKX5atVZ8P8hReAvOPUn58M265VNy1IbdmZAY7Jmd0gF";
+  cdn.crossOrigin = "anonymous";
   cdn.addEventListener("load", () => resolve());
   cdn.addEventListener("error", () => resolve()); // offline: keep the fallback
   document.head.appendChild(cdn);
