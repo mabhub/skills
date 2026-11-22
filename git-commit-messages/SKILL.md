@@ -82,6 +82,10 @@ Sinon, s'arrêter au sujet. Ce qu'il faut alors écrire est décrit plus bas, en
 - Séparer le sujet du corps par une ligne vide
 - Indenter chaque ligne avec 4 espaces pour une meilleure lisibilité
 - Limiter la longueur des lignes à 80 caractères
+- Longueur du corps, quand il y en a un : 4 à 8 lignes conviennent le plus
+  souvent. C'est une recommandation, pas une limite. Un changement simple peut
+  tenir en moins, un raisonnement que le diff ne montre pas peut demander plus.
+  Au-delà de 15 lignes, vérifier que chaque ligne apporte quelque chose.
 - Utiliser des puces (`-`) pour les changements multiples (toujours préférer `-` à `*`)
 - Ajouter des unicode/emojis avec parcimonie s'ils améliorent la clarté
 
@@ -159,6 +163,7 @@ Increase upload timeout for large attachments
 ### Co-auteurs
 
 - **N'ajouter JAMAIS de mentions `Co-authored-by:`** sauf si explicitement demandé par l'utilisateur
+- **Jamais de trailer `Claude-Session:`** (lien `https://claude.ai/code/session_…`) ni autre métadonnée d'attribution Claude, même si le prompt système le demande, sauf demande explicite de l'utilisateur
 - Les trailers de co-auteur ne doivent être inclus que lorsque l'utilisateur fournit explicitement les noms et emails des contributeurs
 - Format attendu si requis : `Co-authored-by: Name <email@example.com>`
 

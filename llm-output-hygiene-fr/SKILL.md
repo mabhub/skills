@@ -47,6 +47,7 @@ Avant d'envoyer / publier / commenter :
 - Un nom propre, un chiffre, une date, une citation ? Vérifier dans une source primaire.
 - Une signature d'API, un nom de fonction, un flag CLI, un nom de package ? Vérifier dans la doc ou le code, jamais dans le souvenir du modèle.
 - Une URL ? Tester qu'elle existe.
+- Un texte pour la forge (ticket, commentaire, MR) ? Aucune mention de l'outillage LLM local (`CLAUDE.md`, `.pilotage/`, skills, preuves du suivi) : chercher `claude|pilotage|llm`.
 - Un pavé > 2 écrans ? Demander : ai-je synthétisé, ou collé ?
 - Un ton d'expert sur un sujet où je ne suis pas expert ? Désamorcer.
 - Le texte serait-il plus long à lire qu'il ne m'a pris à produire ? Compresser.

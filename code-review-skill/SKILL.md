@@ -129,7 +129,11 @@ Lire **tous** les fichiers du répertoire ou module ciblé.
 
 - **Correction** : bugs, cas limites non gérés, gestion d'erreurs absente, race conditions
 - **Code smells** : fonctions trop longues, complexité cyclomatique élevée, nommage opaque,
-  magic numbers, commentaires obsolètes ou contredits par le code
+  magic numbers, commentaires obsolètes ou contredits par le code, commentaire qui raconte la
+  modification ou justifie du code retiré au lieu d'expliquer la ligne qu'il précède
+- **Tests** : assertion déjà vraie avant l'action testée (présence d'un élément rendu même
+  replié, valeur par défaut) → le test ne prouve rien ; il doit asserter un état qui bascule,
+  et casser quand on retire le code qu'il garde
 - **Duplications** : logique répétée extractible — vérifier que les occurrences sont réellement
   identiques *sémantiquement*, pas seulement d'apparence
 - **Sur-ingénierie** : voir § 4.2, c'est un axe à part entière
@@ -247,6 +251,9 @@ et ne se mentionne pas.
 | **Critique** | Problème fonctionnel avéré, risque sécurité ou perte de données |
 | **Important** | Dette technique significative, code fragile, complexité qui coûte cher à chaque modification |
 | **Mineur** | Amélioration de lisibilité, nettoyage cosmétique |
+
+À niveau égal, classer par risque de régression fonctionnelle (bug latent, logique dupliquée
+divergente, test manquant) avant la maintenabilité, puis l'esthétique.
 
 Les findings de sur-ingénierie vont dans leur section dédiée (voir Étape 6), classés par coût :
 une abstraction traversée à chaque lecture du module coûte plus qu'une option morte dans un coin.

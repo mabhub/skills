@@ -240,6 +240,7 @@ glab api /projects/:id/issues --paginate
 | `glab mr merge` sans `--yes`    | Demande confirmation                    | Toujours ajouter `--yes`                                       |
 | Pagination dans `glab api`      | `--per-page` n'est pas un flag          | Utiliser les params dans l'URL : `?per_page=100`               |
 | `-R`/`GITLAB_HOST` systématique | glab détecte le contexte via git remote | Essayer la commande simple d'abord, `-R` seulement en fallback |
+| Push suivi d'une création de MR | Pipeline de branche puis pipeline de MR sur le même SHA | `git push -o ci.skip` ; vérifier d'abord que la MR lance un pipeline (`workflow:rules`), sinon la branche n'est pas testée : le dire et proposer `glab ci run -b <branche>` |
 
 ## Exemples de workflows
 
