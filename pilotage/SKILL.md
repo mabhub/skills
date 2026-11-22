@@ -247,14 +247,20 @@ jour.
 
 Dans une session neuve :
 
-1. `pilotage.mjs reprise <slug>` : un seul appel affiche `INDEX.md`, `plan.md`, les
+1. `pilotage.mjs reprise <slug>` : un seul appel affiche la ligne du chantier dans
+   `INDEX.md` (avec le nombre d'entrées des autres sections), `plan.md`, les
    3 dernières entrées du journal (`--entrees N` pour plus), le statut des décisions,
    les titres de `connaissances.md`, la liste des fichiers complémentaires (nom et
-   taille, sans leur contenu), les prochains identifiants libres, les registres
+   taille, sans leur contenu ; un sous-dossier de plus de 5 fichiers tient en une
+   ligne), les prochains identifiants libres, les registres
    superpowers en cours (dépôt et worktrees), `git status` et les derniers commits. Il
    signale aussi un `.pilotage/` qui ne serait plus exclu de git, les chemins cités
    dans « Repères » devenus introuvables et les identifiants dont le préfixe ne
-   correspond pas au statut (`[hypothèse D9]`). Sans slug, il affiche l'index pour choisir.
+   correspond pas au statut (`[hypothèse D9]`). Sans slug, il affiche l'index complet
+   pour choisir. La sortie reste sous ~25 000 caractères (au-delà de ~30 Ko, Claude Code
+   n'en montre qu'un aperçu) : le journal perd d'abord des entrées, puis `plan.md` est
+   coupé avec la ligne où reprendre la lecture, et une `ALERTE` en tête invite à alléger
+   le suivi.
 2. **Confronter le suivi au dépôt** : une étape notée faite doit se voir dans git ; des
    fichiers modifiés non mentionnés signalent un suivi en retard. Signaler l'écart.
    Pour la section « Hors dépôt », que git ne voit pas, vérifier au besoin que l'état

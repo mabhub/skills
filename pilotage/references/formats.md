@@ -21,7 +21,7 @@ de doute sur l'endroit où ranger une information.
 
 | Fichier            | Contenu                                                                   | Écriture                           | Lecture                                                          |
 |--------------------|---------------------------------------------------------------------------|------------------------------------|------------------------------------------------------------------|
-| `INDEX.md`         | Une ligne par chantier : objectif, étape, date                            | Réécrit (modification ciblée)      | Toujours, à la reprise                                           |
+| `INDEX.md`         | Une ligne par chantier : objectif, étape, date                            | Réécrit (modification ciblée)      | Sa ligne à la reprise ; en entier avec `reprise` sans chantier   |
 | `plan.md`          | État courant et ce qui s'impose maintenant                                | Réécrit section par section        | À la reprise du chantier                                         |
 | `journal.md`       | Historique : constats, décisions, changements d'avis, pistes abandonnées  | **Ajout en fin seulement**         | Par la fin (`reprise` montre les 3 dernières entrées)            |
 | `connaissances.md` | Synthèse par thème de ce qui est établi, sources externes datées          | Réécrit section par section        | Titres seulement à la reprise ; une section quand on en a besoin |

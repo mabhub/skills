@@ -8,8 +8,9 @@
  *                                                with --git, the optional history (.pilotage/.git, see historique.mjs)
  *   decision <slug> <titre...>                   create the next numbered decision file
  *   modele <slug> <essais|connaissances>         add an optional template to a chantier
- *   reprise [<slug>] [--entrees N]               print what a new session needs to resume (index, plan, last journal entries,
- *                                                next free ids, superpowers ledgers, git)
+ *   reprise [<slug>] [--entrees N]               print what a new session needs to resume (the chantier's index line, plan,
+ *                                                last journal entries, next free ids, superpowers ledgers, git), within
+ *                                                OUTPUT_BUDGET characters; without slug, the whole index
  *   contexte [--session <id>]                    measure the current session: context size, pauses, cache rewrites,
  *                                                cache watch hooks status (Claude Code transcripts only; the session
  *                                                defaults to $CLAUDE_CODE_SESSION_ID)
@@ -260,22 +261,52 @@ const BASE_ENTRIES = new Set(['plan.md', 'journal.md', 'connaissances.md', 'deci
  */
 const stripComments = text => text.replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trimEnd();
 
+// A subdirectory holding more complementary files than this is summed up in one line.
+const MAX_FILES_PER_DIR = 5;
+
+/**
+ * Human-readable size in French units.
+ * @param {number} bytes - size in bytes
+ * @returns {string} e.g. "12 Ko", "1,4 Mo"
+ */
+const formatSize = bytes => (bytes < 1024 * 1024
+  ? `${Math.max(1, Math.round(bytes / 1024))} Ko`
+  : `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} Mo`);
+
+/**
+ * Size of one complementary file: its line count for a text file, its weight otherwise.
+ * @param {string} file - absolute path
+ * @returns {string} e.g. "42 lignes", "1263 Ko"
+ */
+const describeFile = file => {
+  const { size } = fs.statSync(file);
+  const lines = size < 1_000_000 ? fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).length : null;
+  return lines === null ? formatSize(size) : `${lines} ligne${lines > 1 ? 's' : ''}`;
+};
+
 /**
  * Lists complementary files of a chantier (recursively), with their size, without reading them aloud.
+ * A top-level subdirectory with more than MAX_FILES_PER_DIR files (proofs, logs, sources) takes a single
+ * line: listing it file by file costs thousands of tokens at every resume for names nobody needs yet.
  * @param {string} dir - chantier directory
- * @returns {string[]} one line per file
+ * @returns {string[]} one line per file or summarized subdirectory
  */
-const extraFiles = dir => fs.readdirSync(dir, { recursive: true, withFileTypes: true })
-  .filter(entry => entry.isFile())
-  .map(entry => path.relative(dir, path.join(entry.parentPath, entry.name)))
-  .filter(rel => !BASE_ENTRIES.has(rel.split(path.sep)[0]))
-  .toSorted()
-  .map(rel => {
-    const file = path.join(dir, rel);
-    const { size } = fs.statSync(file);
-    const lines = size < 1_000_000 ? fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).length : null;
-    return `- ${rel} (${lines === null ? `${Math.round(size / 1024)} Ko` : `${lines} ligne${lines > 1 ? 's' : ''}`})`;
+const extraFiles = dir => {
+  const files = fs.readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter(entry => entry.isFile())
+    .map(entry => path.relative(dir, path.join(entry.parentPath, entry.name)))
+    .filter(rel => !BASE_ENTRIES.has(rel.split(path.sep)[0]))
+    .toSorted();
+  const topDir = rel => (rel.includes(path.sep) ? rel.split(path.sep)[0] : '');
+  const groups = Object.groupBy(files, topDir);
+  return files.flatMap(rel => {
+    const group = groups[topDir(rel)];
+    if (topDir(rel) === '' || group.length <= MAX_FILES_PER_DIR) return [`- ${rel} (${describeFile(path.join(dir, rel))})`];
+    if (group[0] !== rel) return [];
+    const size = group.reduce((sum, file) => sum + fs.statSync(path.join(dir, file)).size, 0);
+    return [`- ${topDir(rel)}/ (${group.length} fichiers, ${formatSize(size)} ; non détaillés)`];
   });
+};
 
 // `décision·Claude` is the former name of `décision·agent`, still found in older journals.
 const ID_PREFIXES = {
@@ -372,7 +403,58 @@ const missingReferences = (planText, { root, dir }) => {
 };
 
 /**
- * `reprise`: print index, plan, last journal entries, decision statuses and git state in one go.
+ * Reduces INDEX.md to what resuming one chantier needs: the chantier's own line under its section
+ * title, then a count of the other entries per section. Closed chantiers and project-wide follow-ups
+ * can weigh several thousand tokens; `reprise` without a slug still prints the whole index.
+ * @param {string} text - INDEX.md content
+ * @param {string} slug - chantier slug
+ * @returns {string} reduced index
+ */
+const indexFor = (text, slug) => {
+  const isOwn = line => line.includes(`[${slug}](`);
+  const sections = stripComments(text).split(/^(?=## )/m)
+    .filter(block => block.startsWith('## '))
+    .map(block => {
+      const [title, ...body] = block.split('\n');
+      return { title, own: body.filter(isOwn), others: body.filter(line => line.startsWith('- ') && !isOwn(line)).length };
+    });
+  const own = sections.flatMap(({ title, own: lines }) => (lines.length > 0 ? [title, ...lines] : []));
+  const others = sections.filter(({ others: count }) => count > 0)
+    .map(({ title, others: count }) => `${title.slice(3).trim()} ${count}`);
+  return [
+    own.length > 0 ? own.join('\n') : `(aucune ligne pour « ${slug} »)`,
+    others.length > 0 ? `\nAutres entrées non affichées : ${others.join(' · ')} (index complet : reprise sans chantier)` : '',
+  ].join('');
+};
+
+// Claude Code keeps a Bash output above ~30 KB out of the conversation and shows only a 2 KB preview,
+// so the agent has to read the whole saved file in a second call. `reprise` stays below, with a margin.
+const OUTPUT_BUDGET = 25_000;
+
+/**
+ * Cuts a plan at a line boundary so that it fits `keep` characters, with a pointer to the rest.
+ * The line number refers to the file on disk: stripped comments only remove lines, so the first
+ * omitted line is searched in the raw file from its position in the stripped text onwards.
+ * @param {{planText: string, rawText: string, keep: number, slug: string}} args - plan.md content
+ *   (comments stripped), raw file content, characters to keep, chantier slug
+ * @returns {string} truncated plan
+ */
+const cutPlan = ({ planText, rawText, keep, slug }) => {
+  const lines = planText.split('\n');
+  const kept = lines.reduce(
+    (acc, line) => (acc.full || acc.length + line.length + 1 > keep
+      ? { ...acc, full: true }
+      : { ...acc, lines: [...acc.lines, line], length: acc.length + line.length + 1 }),
+    { lines: [], length: 0, full: false },
+  ).lines;
+  const rawAt = rawText.split('\n').indexOf(lines[kept.length], kept.length);
+  const from = rawAt >= 0 ? ` à partir de la ligne ${rawAt + 1}` : '';
+  return `${kept.join('\n')}\n[… plan.md coupé ici : ${planText.length - kept.join('\n').length} caractères non affichés → lire ${DIR_NAME}/${slug}/plan.md${from}]`;
+};
+
+/**
+ * `reprise`: print index, plan, last journal entries, decision statuses and git state in one go,
+ * within OUTPUT_BUDGET: the journal shrinks to fewer entries first, then the plan is cut.
  * @param {{flags: Object<string,string>, positional: string[]}} args - parsed arguments
  */
 const cmdReprise = ({ flags, positional }) => {
@@ -384,58 +466,89 @@ const cmdReprise = ({ flags, positional }) => {
     console.log(`Aucun ${DIR_NAME}/INDEX.md dans ${root} → rien à reprendre.`);
     return;
   }
-  console.log(`=== ${DIR_NAME}/INDEX.md ===\n${fs.readFileSync(index, 'utf8').trimEnd()}\n`);
+  const indexText = fs.readFileSync(index, 'utf8');
   const [slug] = positional;
   if (!slug) {
+    console.log(`=== ${DIR_NAME}/INDEX.md ===\n${indexText.trimEnd()}\n`);
     console.log('(Préciser le chantier : reprise <slug>)');
     return;
   }
   const dir = chantierDir(root, slug);
   if (!dir) {
+    console.log(`=== ${DIR_NAME}/INDEX.md ===\n${indexText.trimEnd()}\n`);
     console.error(`ERREUR : chantier « ${slug} » introuvable dans ${base}.`);
     process.exit(1);
   }
+
+  const blocks = [`=== ${DIR_NAME}/INDEX.md — ligne du chantier ===\n${indexFor(indexText, slug)}\n`];
   if (inGit && git(['check-ignore', '-q', path.join(DIR_NAME, 'INDEX.md')], root) === null) {
-    console.log(`ALERTE : ${DIR_NAME}/ n'est plus ignoré par git (relancer init, ne rien commiter).\n`);
+    blocks.push(`ALERTE : ${DIR_NAME}/ n'est plus ignoré par git (relancer init, ne rien commiter).\n`);
   }
   const plan = path.join(dir, 'plan.md');
-  if (fs.existsSync(plan)) {
-    const planText = stripComments(fs.readFileSync(plan, 'utf8'));
-    console.log(`=== ${slug}/plan.md ===\n${planText}\n`);
+  const rawPlan = fs.existsSync(plan) ? fs.readFileSync(plan, 'utf8') : null;
+  const planText = rawPlan === null ? null : stripComments(rawPlan);
+  const planHeader = `=== ${slug}/plan.md ===\n`;
+  const planAt = planText === null ? -1 : blocks.push(`${planHeader}${planText}\n`) - 1;
+  if (planText !== null) {
     const missing = missingReferences(planText, { root, dir });
-    if (missing.length > 0) console.log(`ALERTE : chemins cités dans « Repères » introuvables :\n${missing.map(p => `- ${p}`).join('\n')}\n`);
+    if (missing.length > 0) blocks.push(`ALERTE : chemins cités dans « Repères » introuvables :\n${missing.map(p => `- ${p}`).join('\n')}\n`);
   }
 
   const knowledge = path.join(dir, 'connaissances.md');
   if (fs.existsSync(knowledge)) {
     const headings = fs.readFileSync(knowledge, 'utf8').split('\n').filter(line => /^#{2,3} /.test(line));
-    console.log(`=== ${slug}/connaissances.md — titres seulement ===\n${headings.join('\n') || '(vide)'}\n`);
+    blocks.push(`=== ${slug}/connaissances.md — titres seulement ===\n${headings.join('\n') || '(vide)'}\n`);
   }
 
   const journal = path.join(dir, 'journal.md');
-  if (fs.existsSync(journal)) {
-    const requested = Number(flags.entrees ?? 3);
-    const count = Number.isInteger(requested) && requested >= 1 ? requested : 3;
-    const { shown, total } = lastEntries(fs.readFileSync(journal, 'utf8'), count);
-    console.log(`=== ${slug}/journal.md — ${Math.min(count, total)} dernière(s) entrée(s) sur ${total} ===\n${shown}\n`);
-  }
+  const journalText = fs.existsSync(journal) ? fs.readFileSync(journal, 'utf8') : null;
+  const requested = Number(flags.entrees ?? 3);
+  const count = Number.isInteger(requested) && requested >= 1 ? requested : 3;
+  const journalBlock = n => {
+    const { shown, total } = lastEntries(journalText, n);
+    return `=== ${slug}/journal.md — ${Math.min(n, total)} dernière(s) entrée(s) sur ${total} ===\n${shown}\n`;
+  };
+  const journalAt = journalText === null ? -1 : blocks.push(journalBlock(count)) - 1;
+
   const decisions = decisionSummaries(path.join(dir, 'decisions'));
-  if (decisions.length > 0) console.log(`=== ${slug}/decisions ===\n${decisions.join('\n')}\n`);
+  if (decisions.length > 0) blocks.push(`=== ${slug}/decisions ===\n${decisions.join('\n')}\n`);
   const others = extraFiles(dir);
-  if (others.length > 0) console.log(`=== ${slug} — fichiers complémentaires (non affichés) ===\n${others.join('\n')}\n`);
+  if (others.length > 0) blocks.push(`=== ${slug} — fichiers complémentaires (non affichés) ===\n${others.join('\n')}\n`);
   const definitions = idDefinitions(dir);
-  console.log(`=== ${slug} — prochains identifiants libres ===\n${nextIds(definitions)}\n`);
+  blocks.push(`=== ${slug} — prochains identifiants libres ===\n${nextIds(definitions)}\n`);
   const misprefixed = misprefixedIds(definitions);
-  if (misprefixed.length > 0) console.log(`ALERTE : identifiants au préfixe incohérent avec leur statut (D directive, C décision, H hypothèse, Q question, A attente) :\n${misprefixed.map(site => `- ${site}`).join('\n')}\n`);
+  if (misprefixed.length > 0) blocks.push(`ALERTE : identifiants au préfixe incohérent avec leur statut (D directive, C décision, H hypothèse, Q question, A attente) :\n${misprefixed.map(site => `- ${site}`).join('\n')}\n`);
 
   if (inGit) {
     const ledgers = superpowersLedgers(root);
-    if (ledgers.length > 0) console.log(`=== registres superpowers en cours (non affichés) ===\n${ledgers.join('\n')}\n`);
+    if (ledgers.length > 0) blocks.push(`=== registres superpowers en cours (non affichés) ===\n${ledgers.join('\n')}\n`);
     const status = git(['status', '--short', '--branch'], root);
     const link = projectLink({ base, root, inGit, slug });
     const log = link ? link.join('\n') : git(['log', '--oneline', '-8'], root);
-    console.log(`=== git ===\n${status}\n\n${log}`);
+    blocks.push(`=== git ===\n${status}\n\n${log}`);
   }
+
+  // Each block is printed by its own console.log, hence the +1 for its newline.
+  const sizeOf = list => list.reduce((sum, block) => sum + block.length + 1, 0);
+  const withBlock = (list, at, block) => list.map((existing, i) => (i === at ? block : existing));
+  const entries = journalAt < 0 || sizeOf(blocks) <= OUTPUT_BUDGET
+    ? count
+    : Array.from({ length: count }, (_, i) => count - i)
+      .find(n => sizeOf(withBlock(blocks, journalAt, journalBlock(n))) <= OUTPUT_BUDGET) ?? 1;
+  const shrunk = journalAt < 0 ? blocks : withBlock(blocks, journalAt, journalBlock(entries));
+  const overflow = sizeOf(shrunk) - OUTPUT_BUDGET;
+  const fitted = overflow > 0 && planAt >= 0
+    ? withBlock(shrunk, planAt, `${planHeader}${cutPlan({ planText, rawText: rawPlan, keep: planText.length - overflow - 300, slug })}\n`)
+    : shrunk;
+
+  const reductions = [
+    entries < count ? `journal ramené à ${entries} entrée(s)` : null,
+    fitted !== shrunk ? 'plan.md coupé' : null,
+  ].filter(Boolean);
+  if (reductions.length > 0) {
+    console.log(`ALERTE : sortie réduite pour rester sous ~30 Ko (au-delà, Claude Code n'en montre qu'un aperçu) : ${reductions.join(', ')}. Alléger le suivi : « Où on en est » court, détails dans des fichiers complémentaires.\n`);
+  }
+  fitted.forEach(block => console.log(block));
 };
 
 /**
