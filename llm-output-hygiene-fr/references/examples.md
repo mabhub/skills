@@ -111,6 +111,32 @@ Cas concrets de sortie LLM brute (« sloppypasta ») et leur version après appl
 
 ---
 
+## Exemple 5 : Réponse qui réexplique le contexte
+
+Contexte : dans une MR, le relecteur écrit « Ça contourne le problème au lieu de le corriger, non ? ».
+
+**Avant :**
+
+> Oui, tu as raison, ça contourne le problème au lieu de le corriger. Le vrai correctif est dans `MergeService` : quand on déplace un enfant sous un nouveau parent, il faut mettre à jour `pipeline_id` en plus de `parent_id`. On peut corriger les lignes fausses à partir du journal d'audit avec `Change.where(field: "pipeline_id", source: "merge")`. J'ai vérifié en recette : 123 fusions passées, seulement 6 lignes fausses aujourd'hui, donc le nettoyage est petit.
+>
+> Comme `MergeService` est partagé et pas propre à ce compte, je préfère ouvrir un ticket séparé plutôt qu'élargir cette MR. Le contournement peut rester d'ici là.
+
+**Problèmes :**
+- Le relecteur a soulevé le problème : le lui réexpliquer n'apporte rien.
+- La décision (ticket séparé) n'arrive qu'à la fin, après le diagnostic, la requête et les chiffres.
+- La requête et les chiffres prouvent que le correctif marchera, ce que personne n'a demandé ici : ils ont leur place dans le ticket.
+- Chaque phrase est correcte prise seule : un nettoyage de forme (`stop-slop-fr`) ne verrait rien.
+
+**Après :**
+
+> D'accord, c'est un contournement. Je garde cette MR limitée à ce compte et j'ouvre un ticket séparé pour corriger `MergeService` et les lignes déjà fausses.
+>
+> `MergeService` est partagé entre les comptes, pas propre à celui-ci.
+
+**Corrections :** décision en tête, une seule raison (celle qui peut faire changer d'avis le relecteur), diagnostic et preuves renvoyés au ticket. Les chiffres de recette ne sont pas perdus : ils vont dans le ticket.
+
+---
+
 ## Méta-pattern
 
 Une bonne réécriture **augmente parfois la longueur** quand elle ajoute la provenance — mais elle réduit la **charge de vérification** côté lecteur. Le critère n'est pas « combien de caractères » mais « combien de minutes le lecteur doit dépenser pour faire confiance au message ».

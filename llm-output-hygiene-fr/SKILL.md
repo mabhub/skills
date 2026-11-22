@@ -31,7 +31,7 @@ L'objectif de ce skill n'est **pas** de faire passer une sortie LLM pour humaine
 
 3. **Vérifier avant d'envoyer.** Checklist anti-confabulation : noms propres, chiffres, dates, citations, URLs, signatures d'API, noms de fonctions, flags CLI, faits historiques. Voir [references/checklist.md](references/checklist.md).
 
-4. **Compresser avant de coller.** Si le texte prend plus de temps à lire qu'il n'en a pris à produire, il n'est pas prêt. Synthèse courte > pavé. Lien vers la source > reformulation plausible.
+4. **Compresser avant de coller.** Si le texte prend plus de temps à lire qu'il n'en a pris à produire, il n'est pas prêt. Synthèse courte > pavé. Lien vers la source > reformulation plausible. **Dans une réponse** (fil de MR, échange de mails), le lecteur a déjà le contexte : décision en tête, puis seulement ce qui peut changer son avis (le fait qui lui manque, le lien pour agir). Diagnostic et preuves vont dans le ticket ou la doc. Sans visibilité sur le fil, ne pas présumer de ce que le lecteur sait.
 
 5. **Apporter un delta humain.** Avant d'envoyer, dire ce que **vous** validez, contestez, ou ajoutez par rapport à la sortie modèle. Ce delta — même court — restaure le « token d'humanité » et donne au lecteur un point d'appui pour répondre.
 
@@ -51,6 +51,7 @@ Avant d'envoyer / publier / commenter :
 - Un pavé > 2 écrans ? Demander : ai-je synthétisé, ou collé ?
 - Un ton d'expert sur un sujet où je ne suis pas expert ? Désamorcer.
 - Le texte serait-il plus long à lire qu'il ne m'a pris à produire ? Compresser.
+- Une réponse qui redit le problème, refait le diagnostic ou aligne les preuves avant la décision ? Décision en tête, le reste au ticket. Chaque phrase peut sembler correcte : ce défaut survit au nettoyage de forme.
 - Quelle est ma valeur ajoutée par rapport à la sortie brute ? Si aucune : ne pas envoyer, ou envoyer juste le lien vers la source.
 - Une affirmation qui peut être fausse sans que personne ne le détecte avant longtemps ? Vérifier en priorité.
 
@@ -66,8 +67,8 @@ Avant d'envoyer / publier / commenter :
 
 ## Exemples
 
-Voir [references/examples.md](references/examples.md) pour des transformations avant/après sur des cas concrets (mail, commentaire de MR, message Slack, paragraphe de doc).
+Voir [references/examples.md](references/examples.md) pour des transformations avant/après sur des cas concrets (mail, commentaire de MR, message Slack, paragraphe de doc, réponse qui réexplique le contexte).
 
 ## Attribution
 
-Inspiré de l'article *Stop Sloppypasta — Don't paste raw LLM output at people* (stopsloppypasta.ai), qui formalise les notions d'asymétrie d'effort, de dette cognitive et de taxe de vérification utilisées ici.
+Inspiré de l'article *Stop Sloppypasta — Don't paste raw LLM output at people* (stopsloppypasta.ai), qui formalise les notions d'asymétrie d'effort, de dette cognitive et de taxe de vérification utilisées ici. La règle de la réponse qui réexplique le contexte vient de [humanizer](https://github.com/blader/humanizer) de blader (MIT License, pattern « Writing for the wrong reader »).
