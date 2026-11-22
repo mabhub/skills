@@ -326,15 +326,33 @@ const idDefinitions = dir => ['plan.md', 'journal.md', 'connaissances.md']
   .flatMap(file => [...stripComments(fs.readFileSync(file, 'utf8')).matchAll(ID_DEFINITION_RE)])
   .map(([site, status, prefix, num]) => ({ site, status, prefix, num: Number(num) }));
 
+// Bare reference to an id (`H1 confirmée`, `bloque : Q3`). One or two digits only, so that `H264`
+// or `A380` are not taken for ids.
+const ID_REFERENCE_RE = /(?<![\p{L}\p{N}_-])([DCHQA])(\d{1,2})(?![\p{L}\p{N}_-])/gu;
+
 /**
- * Computes the next free short id per prefix (D, C, H, Q, A). Only definition sites count, so bare
- * references cannot inflate them. A definition with the wrong prefix still counts for its prefix,
- * so that its id is never handed out again.
- * @param {Array<{prefix: string, num: number}>} definitions - id definitions
+ * Bare id references of a chantier's base files, comments stripped. An id defined only in plan.md is
+ * removed from it once settled, and the journal often keeps only a bare reference to it: without
+ * these, the id would be handed out again.
+ * @param {string} dir - chantier directory
+ * @returns {Array<{prefix: string, num: number}>} references
+ */
+const idReferences = dir => ['plan.md', 'journal.md', 'connaissances.md']
+  .map(name => path.join(dir, name))
+  .filter(file => fs.existsSync(file))
+  .flatMap(file => [...stripComments(fs.readFileSync(file, 'utf8')).matchAll(ID_REFERENCE_RE)])
+  .map(([, prefix, num]) => ({ prefix, num: Number(num) }));
+
+/**
+ * Computes the next free short id per prefix (D, C, H, Q, A), above every definition and every bare
+ * reference. A false positive (`A4` for a paper size) only skips a number; reusing an id would make
+ * two items share it. A definition with the wrong prefix still counts for its prefix, so that its id
+ * is never handed out again.
+ * @param {Array<{prefix: string, num: number}>} ids - id definitions and references
  * @returns {string} e.g. "D4 · C2 · H5 · Q1 · A1"
  */
-const nextIds = definitions => {
-  const max = definitions.reduce(
+const nextIds = ids => {
+  const max = ids.reduce(
     (acc, { prefix, num }) => ({ ...acc, [prefix]: Math.max(acc[prefix] ?? 0, num) }),
     {},
   );
@@ -515,7 +533,7 @@ const cmdReprise = ({ flags, positional }) => {
   const others = extraFiles(dir);
   if (others.length > 0) blocks.push(`=== ${slug} — fichiers complémentaires (non affichés) ===\n${others.join('\n')}\n`);
   const definitions = idDefinitions(dir);
-  blocks.push(`=== ${slug} — prochains identifiants libres ===\n${nextIds(definitions)}\n`);
+  blocks.push(`=== ${slug} — prochains identifiants libres ===\n${nextIds([...definitions, ...idReferences(dir)])}\n`);
   const misprefixed = misprefixedIds(definitions);
   if (misprefixed.length > 0) blocks.push(`ALERTE : identifiants au préfixe incohérent avec leur statut (D directive, C décision, H hypothèse, Q question, A attente) :\n${misprefixed.map(site => `- ${site}`).join('\n')}\n`);
 
