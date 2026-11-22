@@ -1,11 +1,9 @@
 ---
 name: stop-slop-fr
 description: >
-  Supprime les tics d'écriture IA dans la prose française. Utiliser pour
-  rédiger, réviser ou nettoyer tout texte en français afin d'éliminer les
-  patterns prévisibles des LLM. Trigger phrases : "nettoie le texte",
-  "enlève le slop", "déslopifie", "écris sans tics IA", "prose naturelle",
-  "stop slop", "anti-slop".
+  Supprime les tics d'écriture IA de la prose française (rédaction, révision,
+  nettoyage). Triggers : "nettoie le texte", "enlève le slop", "déslopifie",
+  "prose naturelle", "stop slop".
 ---
 
 # Stop Slop FR

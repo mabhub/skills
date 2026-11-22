@@ -1,14 +1,11 @@
 ---
 name: code-review-skill
 description: >
-  Use when the user wants to proactively audit an existing codebase — without link to a recent
-  implementation. Détecte code smells, duplications, risques, et sur-ingénierie (code plus
-  compliqué qu'il n'a besoin de l'être : abstractions prématurées, indirections inutiles,
-  généricité spéculative). Triggers: "revue de code", "passe en revue le code", "analyse le code",
-  "audite le projet", "code review", "nettoie le code", "assainissement", "assainir",
-  "que penses-tu du code", "analyse la branche", "review la branche", "review this branch",
-  "ce code est-il trop compliqué", "simplifie ce code", "sur-ingénierie", "over-engineering",
-  "trop d'abstractions", "yagni".
+  Audit proactif d'un code existant, hors revue d'une implémentation récente :
+  code smells, duplications, risques, sur-ingénierie (abstractions prématurées,
+  indirections, généricité spéculative). Triggers : "revue de code", "audite le
+  projet", "analyse la branche", "review this branch", "simplifie ce code",
+  "sur-ingénierie", "yagni".
 ---
 
 # Code Review

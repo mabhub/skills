@@ -1,13 +1,10 @@
 ---
 name: glab-cli
-description: |
-  Primary tool for interacting with GitLab from the command line using glab CLI.
-  Use this skill FIRST for any GitLab operation: merge requests, issues/tickets,
-  CI/CD pipelines, jobs, labels, releases, snippets, and repository information.
-  Triggers on: "merge request", "MR", "pipeline", "CI/CD", "glab", "gitlab issue",
-  "ticket", "gitlab", or when git remote contains "gitlab". Fall back to gitlab-api
-  skill only when glab cannot accomplish the task (e.g., GraphQL introspection,
-  creating issues linked to MR discussions, session cookie auth).
+description: >
+  Primary tool for GitLab from the command line (glab): merge requests,
+  issues/tickets, CI/CD pipelines, jobs, labels, releases, snippets. Use FIRST
+  for any GitLab operation or when the git remote contains "gitlab"; fall back
+  to gitlab-api only when glab cannot do it (GraphQL, session cookie auth).
 ---
 
 # glab CLI - Interface principale GitLab

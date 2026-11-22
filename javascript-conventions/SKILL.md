@@ -1,6 +1,9 @@
 ---
 name: javascript-conventions
-description: Standards de codage JavaScript/Node.js couvrant style fonctionnel, formatage, ESM, async/await, JSDoc, et bonnes pratiques. Utiliser pour TOUT script JavaScript, qu'il s'agisse de Node.js backend, frontend navigateur, ou scripts d'automatisation. Déclencheurs typiques incluent création de scripts, génération de code JS/TS, écriture de fonctions, ou tout travail impliquant JavaScript/Node.js hors autres conventions déjà établies.
+description: >
+  Standards JavaScript/Node.js (style fonctionnel, ESM, async/await, JSDoc,
+  formatage) pour tout code JS/TS : scripts Node, front navigateur,
+  automatisation, sauf conventions de projet déjà établies.
 ---
 
 # JavaScript Conventions

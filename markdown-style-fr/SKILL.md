@@ -1,15 +1,11 @@
 ---
 name: markdown-style-fr
 description: >
-  Conventions de mise en forme Markdown (et pseudo-Markdown) pour les textes
-  rédigés en français : commentaires et descriptions de forge (GitLab, GitHub),
-  notes Obsidian, docs, READMEs, messages de tickets/MR/PR. Utiliser AVANT de
-  proposer ou poster tout contenu Markdown : applique flèches → de conséquence,
-  un-fait-par-ligne, backticks réservés au code, guillemets droits, évite
-  tirets cadratin et point-virgules, respecte le wrapping existant de la source.
-  Trigger phrases : "commente cette MR/PR", "rédige cette issue", "poste ce
-  commentaire GitLab", "écris cette note Obsidian", "mets en forme ce markdown",
-  "style markdown", "formate ce commentaire", "rédige cette description".
+  Conventions Markdown pour les textes en français : commentaires et
+  descriptions de forge (GitLab, GitHub), tickets, MR/PR, notes Obsidian, docs,
+  READMEs. Utiliser AVANT de proposer ou poster tout contenu Markdown.
+  Triggers : "commente cette MR/PR", "rédige cette issue", "écris cette note
+  Obsidian", "mets en forme ce markdown", "rédige cette description".
 ---
 
 # Markdown Style FR

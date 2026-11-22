@@ -1,12 +1,11 @@
 ---
 name: pilotage
 description: >
-  Pilotage des chantiers longs dans un dossier local `.pilotage/` exclu de git :
-  macro-plan, journal, statut de chaque élément tracé, points d'étape qui disent s'il
-  faut /clear, /compact ou continuer, reprise dans une conversation neuve, veille
-  optionnelle (hooks Claude Code) avant l'expiration du cache. Pour une
-  tâche de plusieurs étapes ou une reprise. Trigger phrases : "/pilotage", "point
-  d'étape", "je peux /clear ?", "on reprend", "reprends le chantier".
+  Suivi des chantiers longs dans `.pilotage/` (hors git) : macro-plan, journal,
+  statuts, points d'étape (/clear, /compact ou continuer), reprise dans une
+  conversation neuve. Pour une tâche de plusieurs étapes ou une reprise.
+  Triggers : "/pilotage", "point d'étape", "je peux /clear ?", "on reprend",
+  "reprends le chantier".
 ---
 
 # Pilotage des chantiers

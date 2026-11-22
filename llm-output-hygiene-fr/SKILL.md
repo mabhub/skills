@@ -1,13 +1,10 @@
 ---
 name: llm-output-hygiene-fr
 description: >
-  Hygiène épistémique des sorties LLM avant transmission à un autre humain.
-  Calibre la certitude, marque la provenance, détecte la confabulation,
-  compresse les pavés. Utiliser AVANT d'envoyer un mail, un message Slack,
-  un commentaire d'issue/MR, une doc, ou tout texte rédigé avec aide LLM.
-  Trigger phrases : "envoie ce message", "rédige ce mail", "commente cette MR",
-  "réponds à cette issue", "publie cette doc", "hygiène LLM",
-  "calibre la certitude", "vérifie avant d'envoyer", "compresse avant envoi".
+  Hygiène épistémique d'un texte rédigé avec un LLM avant de le transmettre à un
+  humain : certitude calibrée, provenance, confabulation, compression. Utiliser
+  AVANT d'envoyer un mail, un message, un commentaire d'issue/MR ou une doc.
+  Triggers : "rédige ce mail", "commente cette MR", "vérifie avant d'envoyer".
 ---
 
 # LLM Output Hygiene FR
