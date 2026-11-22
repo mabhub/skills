@@ -1,0 +1,3 @@
+[submodule "pilotage"]
+	path = pilotage
+	url = https://github.com/mabhub/pilotage.git
