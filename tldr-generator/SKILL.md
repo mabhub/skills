@@ -40,6 +40,16 @@ node "$SKILL_DIR/scripts/identify-articles.mjs"
 node "$SKILL_DIR/scripts/identify-articles.mjs" --json
 ```
 
+**État de la bibliothèque par date** (pour « où en est-on ? », pas pour choisir quoi résumer) : `list-articles.mjs` liste chaque article avec ou sans `.tldr.md`, trié par date (`created` du front-matter, sinon date de modification, marquée `*`) :
+
+```bash
+node "$SKILL_DIR/scripts/list-articles.mjs"            # tableau texte, plus récents en bas
+node "$SKILL_DIR/scripts/list-articles.mjs" --json     # ou --md, --html, --atom ; --desc / --asc pour l'ordre
+node "$SKILL_DIR/scripts/list-articles.mjs" --html --feed --base-url https://exemple.fr
+```
+
+Seul `--feed` écrit sur disque : `feed.xml` (et `index.html` avec `--html`) dans le dossier de la bibliothèque, en écrasant les fichiers existants. Ne le lancer qu'à la demande de l'utilisateur, avec l'URL qu'il donne.
+
 ### 2. Analyse préliminaire (optionnel)
 
 Avant de générer le TL;DR, analyser l'article pour déterminer son type et obtenir des recommandations :
@@ -235,6 +245,7 @@ Pour éviter les cycles de regénération coûteux en tokens :
 - Ne traiter que les fichiers `.md` du répertoire cible — ne jamais lire de fichiers hors périmètre (`.env`, configs, scripts)
 - Si un front-matter contient des adresses email, URLs internes ou tokens : ne pas les reproduire dans le TL;DR
 - Ne jamais inclure de métadonnées système (chemins absolus, identifiants de fichier) dans la sortie
+- `list-articles.mjs --html` produit une page qui charge `marked` depuis jsDelivr (version non épinglée) et lit les `.md` voisins : la publier seulement si la bibliothèque est destinée à être publique. Sans réseau, la page bascule sur un rendu simplifié
 
 ## Notes d'implémentation
 
