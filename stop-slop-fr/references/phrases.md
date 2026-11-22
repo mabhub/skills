@@ -185,7 +185,21 @@ Le texte doit avancer, pas s'annoncer. Supprimer les commentaires autoréférent
 - "Passons maintenant à"
 - "Abordons à présent"
 
-## Emphase performative
+## Résidus de chatbot
+
+Formules de conversation restées dans un texte qui doit tenir seul. Le tic le plus net et le plus facile à rater quand il entoure du vrai contenu. Supprimer les formules d'accueil et de clôture, garder le contenu.
+
+- "Excellente question !"
+- "Bien sûr !" / "Absolument !" / "Avec plaisir !"
+- "Vous avez tout à fait raison"
+- "Voici un aperçu de…" / "Voici une version révisée"
+- "J'espère que cela vous aide"
+- "N'hésitez pas à me dire si…"
+- "Souhaitez-vous que je…" / "Voulez-vous que je développe… ?"
+
+Une formule de politesse de courrier ("Bien cordialement", "Dites-moi si ça vous va") n'est pas un résidu : elle précède les chatbots.
+
+## Franchise affichée
 
 Fausse sincérité et fausse franchise :
 
@@ -201,7 +215,7 @@ Fausse sincérité et fausse franchise :
 - "En toute franchise"
 - "En toute objectivité"
 
-## Déclaratifs vagues
+## Affirmations vagues
 
 Phrases qui annoncent une importance sans la montrer. Les couper ou remplacer par le fait précis.
 
