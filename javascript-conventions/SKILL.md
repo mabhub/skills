@@ -25,6 +25,8 @@ Ce skill vaut **là où le projet ne dit rien**. Ordre de priorité, du plus for
 - il ne les documente pas et la tâche crée du code nouveau : observer une fois quelques fichiers représentatifs et récents (forme seulement : déclaration des fonctions et composants, imports, types, commentaires et JSDoc, tests), puis proposer à l'utilisateur de consigner le résultat, daté, dans le `CLAUDE.md` du projet ; sans accord, s'en tenir à cette observation pour la session, sans la refaire à chaque fichier ;
 - modification d'un fichier existant : ce fichier sert de référence (il est lu de toute façon), aucune lecture de plus.
 
+Consigner les pratiques comme des constats, pas comme des interdictions : « JSDoc rare » ou « aucun test de composant » décrit l'existant. Un ajout de ce type reste possible quand il est utile, signalé comme nouveauté ; seules les règles que le projet énonce lui-même (lint, documentation, remarques de revue) deviennent des directives.
+
 Revoir la section consignée sur signal, pas à intervalle fixe : remarque de revue qui la contredit, échec de lint sur une règle de forme, fichier récent qui s'en écarte nettement.
 
 ## Standards de Codage
