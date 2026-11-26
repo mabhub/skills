@@ -8,7 +8,24 @@ description: >
 
 # JavaScript Conventions
 
-**Priorité des règles :** Si un projet possède une configuration de linting fonctionnelle (ESLint, etc.), ses règles sont PRIORITAIRES sur celles de ce skill en cas de conflit. Si le nombre d'erreurs de linting est très élevé, interroger l'utilisateur avant de procéder.
+## Priorité et conventions du projet
+
+Ce skill vaut **là où le projet ne dit rien**. Ordre de priorité, du plus fort au plus faible :
+
+1. configuration de lint et de formatage du projet (ESLint, oxlint, Biome, Prettier, oxfmt…) ; si le nombre d'erreurs est très élevé, interroger l'utilisateur avant de procéder ;
+2. conventions documentées par le projet : section du `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, skill local ;
+3. conventions observées dans le code du projet ;
+4. ce skill.
+
+**Fond et forme.** Les règles de fond (§5 ESM, §6 async/await, `AbortSignal`, `cause`, §11 comparaisons strictes, §12 immutabilité, §14 cible) s'appliquent tant que le projet ne les contredit pas explicitement. Les règles de forme (§2 fonctions fléchées, §3 formatage, §4 JSDoc, §7 objets de correspondance, §8 objets d'options) cèdent aussi à ce qu'on observe dans le code.
+
+**Observer une fois, consigner, ne plus relire.** Lire des fichiers voisins avant chaque écriture coûte cher ; l'observation se fait une fois par projet :
+
+- le projet documente ses conventions (niveau 2) : les appliquer sans lecture supplémentaire ;
+- il ne les documente pas et la tâche crée du code nouveau : observer une fois quelques fichiers représentatifs et récents (forme seulement : déclaration des fonctions et composants, imports, types, commentaires et JSDoc, tests), puis proposer à l'utilisateur de consigner le résultat, daté, dans le `CLAUDE.md` du projet ; sans accord, s'en tenir à cette observation pour la session, sans la refaire à chaque fichier ;
+- modification d'un fichier existant : ce fichier sert de référence (il est lu de toute façon), aucune lecture de plus.
+
+Revoir la section consignée sur signal, pas à intervalle fixe : remarque de revue qui la contredit, échec de lint sur une règle de forme, fichier récent qui s'en écarte nettement.
 
 ## Standards de Codage
 
@@ -428,7 +445,8 @@ Avant d'utiliser une API récente (JS, DOM, CSS), lire la cible déclarée par l
 
 1. `browserslist` (champ de `package.json` ou fichier `.browserslistrc`)
 2. `engines.node` dans `package.json`
-3. Documentation du projet (`CLAUDE.md`, `AGENTS.md`, `README.md`)
+3. `compilerOptions.target` et `lib` de `tsconfig.json` (projet TypeScript) : une méthode absente de `lib` ne compile pas, même si les navigateurs visés la connaissent (ex. `toSorted` avec `"lib": ["ES2022"]`)
+4. Documentation du projet (`CLAUDE.md`, `AGENTS.md`, `README.md`)
 
 Si l'API dépasse la cible déclarée, ne pas l'utiliser, ou le signaler. Si le projet ne déclare aucune cible et que l'API est récente (par exemple `Object.groupBy` ou `Promise.withResolvers`, absents de Node 20), poser la question plutôt que d'ajouter de soi-même un polyfill ou un code de repli.
 
@@ -438,8 +456,9 @@ Voir [javascript-examples.md](./references/javascript-examples.md) pour des exem
 
 ## Checklist Pré-Livraison
 
-Avant de finaliser un script JavaScript :
+Avant de finaliser un script JavaScript (règles de forme : sauf convention du projet, voir « Priorité et conventions du projet ») :
 
+- [ ] Conventions documentées ou observées du projet respectées
 - [ ] Arrow functions utilisées (sauf cas `this` nécessaire)
 - [ ] Points-virgules présents
 - [ ] Dangling commas sur multilignes
